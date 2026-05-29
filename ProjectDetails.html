@@ -1,0 +1,250 @@
+<!-- ProjectDetails.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Detalhes do Projeto: <span id="project-detail-name"></span></h3>
+          <a class="waves-effect waves-light btn" onclick="loadProjectManagementPage()"><i class="material-icons left">arrow_back</i>Voltar aos Projetos</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Informações do Projeto</h5>
+            <p><b>ID:</b> <span id="detail-project-id"></span></p>
+            <p><b>Descrição:</b> <span id="detail-project-description"></span></p>
+            <p><b>Status:</b> <span id="detail-project-status"></span></p>
+            <p><b>Início:</b> <span id="detail-project-start-date"></span></p>
+            <p><b>Fim:</b> <span id="detail-project-end-date"></span></p>
+            <p><b>Responsável:</b> <span id="detail-project-responsible"></span></p>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Métricas do Projeto</h5>
+            <p><b>Progresso:</b> <span id="detail-project-progress"></span>%</p>
+            <p><b>Tempo Restante:</b> <span id="detail-project-time-remaining"></span></p>
+            <p><b>Tarefas Atrasadas:</b> <span id="detail-project-overdue-tasks"></span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Tarefas Associadas</h5>
+            <table class="striped responsive-table">
+              <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Descrição</th>
+                    <th>Responsável</th>
+                    <th>Prazo</th>
+                    <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="project-tasks-table-body">
+                <!-- Tarefas do projeto serão carregadas aqui -->
+              </tbody>
+            </table>
+            <a href="#!" class="btn waves-effect waves-light" onclick="loadTaskManagementPage(currentProjectDetailId)"><i class="material-icons left">assignment</i>Gerenciar Tarefas</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Avaliações do Projeto</h5>
+            <table class="striped responsive-table">
+              <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Avaliador</th>
+                    <th>Data</th>
+                    <th>Aderência (%)</th>
+                    <th>Compreensão (%)</th>
+                    <th>Comentários</th>
+                    <th>Feedback Gemini</th>
+                </tr>
+              </thead>
+              <tbody id="project-evaluations-table-body">
+                <!-- Avaliações do projeto serão carregadas aqui -->
+              </tbody>
+            </table>
+            <a href="#!" class="btn waves-effect waves-light" onclick="loadEvaluationPage(currentProjectDetailId)"><i class="material-icons left">assessment</i>Gerenciar Avaliações</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Comentários do Projeto</h5>
+            <div id="project-comments-list">
+              <!-- Comentários serão carregados aqui -->
+            </div>
+            <div class="input-field">
+              <textarea id="newProjectComment" class="materialize-textarea"></textarea>
+              <label for="newProjectComment">Adicionar Comentário</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="addCommentToProject()">
+              Enviar Comentário
+              <i class="material-icons right">send</i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      var currentProjectDetailId = null;
+
+      function loadProjectDetailsPage(projectId) {
+        currentProjectDetailId = projectId;
+        showLoading();
+        google.script.run.withSuccessHandler(function(html) {
+          hideLoading();
+          document.getElementById("app-content").innerHTML = html;
+          M.AutoInit();
+          loadProjectDetails(projectId);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar detalhes do projeto: " + error.message, "error");
+        }).HtmlOutputRenderer.renderHtmlTemplate("ProjectDetails");
+      }
+
+      function loadProjectDetails(projectId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(project) {
+          hideLoading();
+          document.getElementById("project-detail-name").innerText = project.NomeProjeto;
+          document.getElementById("detail-project-id").innerText = project.ID;
+          document.getElementById("detail-project-description").innerText = project.Descricao;
+          document.getElementById("detail-project-status").innerText = project.Status;
+          document.getElementById("detail-project-start-date").innerText = project.DataInicio;
+          document.getElementById("detail-project-end-date").innerText = project.DataFim || "N/A";
+          document.getElementById("detail-project-responsible").innerText = project.ResponsavelNome || "N/A";
+
+          // Carregar métricas
+          google.script.run.withSuccessHandler(function(metrics) {
+            document.getElementById("detail-project-progress").innerText = metrics.progress;
+            document.getElementById("detail-project-time-remaining").innerText = metrics.message;
+            document.getElementById("detail-project-overdue-tasks").innerText = metrics.overdueTasksCount;
+          }).withFailureHandler(function(error) {
+            showToast("Erro ao carregar métricas do projeto: " + error.message, "error");
+          }).apiGetProjectMetrics(projectId); // Supondo uma API para métricas
+
+          // Carregar tarefas
+          google.script.run.withSuccessHandler(function(tasks) {
+            var tableBody = document.getElementById("project-tasks-table-body");
+            tableBody.innerHTML = "";
+            tasks.forEach(function(task) {
+              var row = `
+                <tr>
+                  <td>${task.ID}</td>
+                  <td>${task.Descricao}</td>
+                  <td>${task.ResponsavelNome || "N/A"}</td>
+                  <td>${task.Prazo || "N/A"}</td>
+                  <td>${task.Status}</td>
+                </tr>
+              `;
+              tableBody.innerHTML += row;
+            });
+          }).withFailureHandler(function(error) {
+            showToast("Erro ao carregar tarefas do projeto: " + error.message, "error");
+          }).apiGetTasksByProjectId(projectId);
+
+          // Carregar avaliações
+          google.script.run.withSuccessHandler(function(evaluations) {
+            var tableBody = document.getElementById("project-evaluations-table-body");
+            tableBody.innerHTML = "";
+            evaluations.forEach(function(evaluation) {
+              var row = `
+                <tr>
+                  <td>${evaluation.ID}</td>
+                  <td>${evaluation.UsuarioEmail || "N/A"}</td>
+                  <td>${evaluation.DataAvaliacao ? new Date(evaluation.DataAvaliacao).toLocaleDateString() : "N/A"}</td>
+                  <td>${evaluation.PontuacaoAderencia}</td>
+                  <td>${evaluation.PontuacaoCompreensao}</td>
+                  <td>${evaluation.Comentarios || ""}</td>
+                  <td>${evaluation.GeminiFeedback || ""}</td>
+                </tr>
+              `;
+              tableBody.innerHTML += row;
+            });
+          }).withFailureHandler(function(error) {
+            showToast("Erro ao carregar avaliações do projeto: " + error.message, "error");
+          }).apiGetProjectEvaluations(projectId);
+
+          // Carregar comentários
+          loadProjectComments(projectId);
+
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar detalhes do projeto: " + error.message, "error");
+        }).apiGetProjectById(projectId);
+      }
+
+      function loadProjectComments(projectId) {
+        google.script.run.withSuccessHandler(function(comments) {
+          var commentsList = document.getElementById("project-comments-list");
+          commentsList.innerHTML = "";
+          if (comments.length === 0) {
+            commentsList.innerHTML = "<p>Nenhum comentário para este projeto.</p>";
+            return;
+          }
+          comments.forEach(function(comment) {
+            var commentHtml = `
+              <div class="card-panel grey lighten-5 z-depth-1">
+                <div class="row valign-wrapper no-margin-bottom">
+                  <div class="col s1">
+                    <img src="https://www.gravatar.com/avatar/?d=mp" alt="" class="circle responsive-img"> <!-- notice the "circle" class -->
+                  </div>
+                  <div class="col s11">
+                    <span class="black-text">
+                      <b>${comment.UsuarioEmail}</b> em ${new Date(comment.DataComentario).toLocaleString()}<br>
+                      ${comment.Comentario}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `;
+            commentsList.innerHTML += commentHtml;
+          });
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar comentários do projeto: " + error.message, "error");
+        }).apiGetProjectComments(projectId);
+      }
+
+      function addCommentToProject() {
+        var commentText = document.getElementById("newProjectComment").value;
+        if (!commentText.trim()) {
+          showToast("O comentário não pode estar vazio.", "error");
+          return;
+        }
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("newProjectComment").value = "";
+            loadProjectComments(currentProjectDetailId);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao adicionar comentário: " + error.message, "error");
+        }).apiAddProjectComment(currentProjectDetailId, commentText);
+      }
+    </script>
+  </body>
+</html>

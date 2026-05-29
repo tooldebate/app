@@ -1,0 +1,114 @@
+<!-- GoogleFormsIntegration.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Integração com Google Forms</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Formulários Recentes</h5>
+            <p>Visualize e gerencie formulários do Google Forms relacionados aos seus projetos.</p>
+            <button class="btn waves-effect waves-light" onclick="loadRecentForms()">
+              Carregar Formulários
+              <i class="material-icons right">assignment</i>
+            </button>
+            <ul class="collection" id="forms-list" style="margin-top: 20px;">
+              <!-- Formulários serão carregados aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Criar Novo Formulário</h5>
+            <form id="createFormForm">
+              <div class="input-field">
+                <input id="formTitle" type="text" class="validate" required>
+                <label for="formTitle">Título do Formulário</label>
+              </div>
+              <div class="input-field">
+                <textarea id="formDescription" class="materialize-textarea"></textarea>
+                <label for="formDescription">Descrição (opcional)</label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action" style="margin-top: 20px;">
+                Criar Formulário
+                <i class="material-icons right">add_box</i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        // M.AutoInit(); // Inicializa componentes Materialize CSS
+      });
+
+      function loadRecentForms() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(forms) {
+          hideLoading();
+          var formsList = document.getElementById("forms-list");
+          formsList.innerHTML = "";
+          if (forms.length === 0) {
+            formsList.innerHTML = `<li class="collection-item">Nenhum formulário encontrado.</li>`;
+            return;
+          }
+          forms.forEach(function(form) {
+            var li = document.createElement("li");
+            li.className = "collection-item avatar";
+            li.innerHTML = `
+              <i class="material-icons circle blue">assignment</i>
+              <span class="title">${form.title}</span>
+              <p>Última modificação: ${new Date(form.lastModified).toLocaleString()}<br>
+                 <a href="${form.editorUrl}" target="_blank">Editar Formulário</a> | 
+                 <a href="${form.responderUrl}" target="_blank">Visualizar Formulário</a>
+              </p>
+            `;
+            formsList.appendChild(li);
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar formulários: " + error.message, "error");
+        }).apiGetRecentGoogleForms(); // Supondo uma API para obter formulários recentes
+      }
+
+      document.getElementById("createFormForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        showLoading();
+
+        var formData = {
+          title: document.getElementById("formTitle").value,
+          description: document.getElementById("formDescription").value
+        };
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("createFormForm").reset();
+            loadRecentForms();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao criar formulário: " + error.message, "error");
+        }).apiCreateGoogleForm(formData); // Supondo uma API para criar formulário
+      });
+    </script>
+  </body>
+</html>

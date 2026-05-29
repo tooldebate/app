@@ -1,0 +1,109 @@
+<!-- ProjectArchive.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Arquivamento de Projetos</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Nome do Projeto</th>
+                  <th>Status</th>
+                  <th>Data de Arquivamento</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="archived-projects-table-body">
+              <!-- Projetos arquivados serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadArchivedProjects();
+      });
+
+      function loadArchivedProjects() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(projects) {
+          hideLoading();
+          var tableBody = document.getElementById("archived-projects-table-body");
+          tableBody.innerHTML = "";
+          if (projects.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5">Nenhum projeto arquivado encontrado.</td></tr>`;
+            return;
+          }
+          projects.forEach(function(project) {
+            var row = `
+              <tr>
+                <td>${project.ID}</td>
+                <td>${project.NomeProjeto}</td>
+                <td>${project.Status}</td>
+                <td>${project.DataArquivamento || "N/A"}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light green" onclick="restoreProject(${project.ID})"><i class="material-icons">unarchive</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="permanentlyDeleteProject(${project.ID})"><i class="material-icons">delete_forever</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar projetos arquivados: " + error.message, "error");
+        }).apiGetArchivedProjects(); // Supondo uma API para obter projetos arquivados
+      }
+
+      function restoreProject(projectId) {
+        if (confirm("Tem certeza que deseja restaurar este projeto?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadArchivedProjects();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao restaurar projeto: " + error.message, "error");
+          }).apiRestoreProject(projectId); // Supondo uma API para restaurar projeto
+        }
+      }
+
+      function permanentlyDeleteProject(projectId) {
+        if (confirm("ATENÇÃO: Tem certeza que deseja DELETAR PERMANENTEMENTE este projeto? Esta ação não pode ser desfeita.")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadArchivedProjects();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar projeto permanentemente: " + error.message, "error");
+          }).apiPermanentlyDeleteProject(projectId); // Supondo uma API para deletar permanentemente
+        }
+      }
+    </script>
+  </body>
+</html>

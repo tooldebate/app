@@ -1,0 +1,124 @@
+<!-- NotificationCenter.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Central de Notificações</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <ul class="collection with-header" id="notification-list">
+            <li class="collection-header"><h4>Minhas Notificações</h4></li>
+            <!-- Notificações serão carregadas aqui -->
+          </ul>
+          <button class="btn waves-effect waves-light red" onclick="clearAllNotifications()">
+            Limpar Todas
+            <i class="material-icons right">clear_all</i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadNotifications();
+      });
+
+      function loadNotifications() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(notifications) {
+          hideLoading();
+          var notificationList = document.getElementById("notification-list");
+          notificationList.innerHTML = 
+            `<li class="collection-header"><h4>Minhas Notificações</h4></li>`;
+          if (notifications.length === 0) {
+            notificationList.innerHTML += `<li class="collection-item">Nenhuma notificação.</li>`;
+            return;
+          }
+          notifications.forEach(function(notification) {
+            var li = document.createElement("li");
+            li.className = "collection-item avatar";
+            li.innerHTML = `
+              <i class="material-icons circle ${getNotificationIconColor(notification.Type)}">${getNotificationIcon(notification.Type)}</i>
+              <span class="title">${notification.Titulo}</span>
+              <p>${notification.Mensagem}<br>
+                 <span class="grey-text text-darken-1">${new Date(notification.Timestamp).toLocaleString()}</span>
+              </p>
+              <a href="#!" class="secondary-content" onclick="markNotificationAsRead(${notification.ID})"><i class="material-icons">check</i></a>
+            `;
+            notificationList.appendChild(li);
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar notificações: " + error.message, "error");
+        }).apiGetNotifications(); // Supondo uma API para obter notificações do usuário
+      }
+
+      function getNotificationIcon(type) {
+        switch (type) {
+          case "info": return "info";
+          case "warning": return "warning";
+          case "error": return "error";
+          case "success": return "check_circle";
+          case "task": return "assignment";
+          case "project": return "work";
+          default: return "notifications";
+        }
+      }
+
+      function getNotificationIconColor(type) {
+        switch (type) {
+          case "info": return "blue";
+          case "warning": return "orange";
+          case "error": return "red";
+          case "success": return "green";
+          case "task": return "purple";
+          case "project": return "teal";
+          default: return "grey";
+        }
+      }
+
+      function markNotificationAsRead(notificationId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast("Notificação marcada como lida.", "success");
+            loadNotifications();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao marcar notificação como lida: " + error.message, "error");
+        }).apiMarkNotificationAsRead(notificationId); // Supondo uma API para marcar como lida
+      }
+
+      function clearAllNotifications() {
+        if (confirm("Tem certeza que deseja limpar todas as notificações?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast("Todas as notificações foram limpas.", "success");
+              loadNotifications();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao limpar notificações: " + error.message, "error");
+          }).apiClearAllNotifications(); // Supondo uma API para limpar todas as notificações
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,98 @@
+<!-- UserProfile.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Meu Perfil</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Informações Pessoais</h5>
+            <form id="userProfileForm">
+              <input type="hidden" id="profileUserId">
+              <div class="input-field">
+                <input id="profileUserName" type="text" class="validate" required>
+                <label for="profileUserName">Nome</label>
+              </div>
+              <div class="input-field">
+                <input id="profileUserEmail" type="email" class="validate" disabled>
+                <label for="profileUserEmail">Email</label>
+              </div>
+              <div class="input-field">
+                <input id="profileUserRole" type="text" class="validate" disabled>
+                <label for="profileUserRole">Papel</label>
+              </div>
+              <div class="input-field">
+                <input id="profileUserPassword" type="password" class="validate">
+                <label for="profileUserPassword">Nova Senha (deixe em branco para não alterar)</label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action" style="margin-top: 20px;">
+                Salvar Alterações
+                <i class="material-icons right">save</i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadUserProfile();
+      });
+
+      function loadUserProfile() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(user) {
+          hideLoading();
+          if (user) {
+            document.getElementById("profileUserId").value = user.ID;
+            document.getElementById("profileUserName").value = user.Nome;
+            document.getElementById("profileUserEmail").value = user.Email;
+            document.getElementById("profileUserRole").value = user.Role;
+            M.updateTextFields();
+          } else {
+            showToast("Não foi possível carregar o perfil do usuário.", "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar perfil: " + error.message, "error");
+        }).apiGetSessionUser();
+      }
+
+      document.getElementById("userProfileForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        showLoading();
+        var userId = document.getElementById("profileUserId").value;
+        var userData = {
+          Nome: document.getElementById("profileUserName").value
+        };
+        var newPassword = document.getElementById("profileUserPassword").value;
+        if (newPassword) {
+          userData.Senha = newPassword;
+        }
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            // Opcional: recarregar o perfil ou redirecionar
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao atualizar perfil: " + error.message, "error");
+        }).apiUpdateUser(userId, userData);
+      });
+    </script>
+  </body>
+</html>

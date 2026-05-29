@@ -1,0 +1,70 @@
+<!-- UserActivityLog.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Log de Atividades do Usuário</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Usuário</th>
+                  <th>Ação</th>
+                  <th>Detalhes</th>
+                  <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="activity-log-table-body">
+              <!-- Logs de atividade serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadUserActivityLog();
+      });
+
+      function loadUserActivityLog() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(logs) {
+          hideLoading();
+          var tableBody = document.getElementById("activity-log-table-body");
+          tableBody.innerHTML = "";
+          if (logs.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5">Nenhum log de atividade encontrado.</td></tr>`;
+            return;
+          }
+          logs.forEach(function(log) {
+            var row = `
+              <tr>
+                <td>${log.ID}</td>
+                <td>${log.UsuarioEmail || "N/A"}</td>
+                <td>${log.Acao}</td>
+                <td>${log.Detalhes || ""}</td>
+                <td>${new Date(log.Timestamp).toLocaleString()}</td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar log de atividades: " + error.message, "error");
+        }).apiGetUserActivityLog(); // Supondo uma API para obter logs de atividade
+      }
+    </script>
+  </body>
+</html>

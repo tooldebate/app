@@ -1,0 +1,246 @@
+<!-- TaskManagement.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciamento de Tarefas</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddTask"><i class="material-icons left">add</i>Adicionar Tarefa</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Projeto</th>
+                  <th>Descrição</th>
+                  <th>Responsável</th>
+                  <th>Prazo</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tasks-table-body">
+              <!-- Dados das tarefas serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar/Editar Tarefa -->
+      <div id="modalAddTask" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar/Editar Tarefa</h4>
+          <form id="taskForm">
+            <input type="hidden" id="taskId">
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="taskProject">
+                  <!-- Projetos serão carregados aqui -->
+                </select>
+                <label>Projeto</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="taskDescription" class="materialize-textarea" required></textarea>
+                <label for="taskDescription">Descrição</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="taskResponsible">
+                  <!-- Usuários serão carregados aqui -->
+                </select>
+                <label>Responsável</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s6">
+                <input id="taskDueDate" type="text" class="datepicker">
+                <label for="taskDueDate">Prazo</label>
+              </div>
+              <div class="input-field col s6">
+                <select id="taskStatus">
+                  <option value="Pendente">Pendente</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluída">Concluída</option>
+                  <option value="Atrasada">Atrasada</option>
+                </select>
+                <label>Status</label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveTask()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var datepickers = document.querySelectorAll(".datepicker");
+        M.Datepicker.init(datepickers, { format: "yyyy-mm-dd" });
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+      });
+
+      var currentProjectId = null;
+
+      function loadTasksTable(projectId = null) {
+        currentProjectId = projectId;
+        showLoading();
+        var apiCall = projectId ? google.script.run.apiGetTasksByProjectId(projectId) : google.script.run.apiGetTasksByProjectId("");
+
+        apiCall.withSuccessHandler(function(tasks) {
+          hideLoading();
+          var tableBody = document.getElementById("tasks-table-body");
+          tableBody.innerHTML = "";
+          tasks.forEach(function(task) {
+            var row = `
+              <tr>
+                <td>${task.ID}</td>
+                <td>${task.ProjetoNome || "N/A"}</td>
+                <td>${task.Descricao}</td>
+                <td>${task.ResponsavelNome || "N/A"}</td>
+                <td>${task.Prazo || "N/A"}</td>
+                <td>${task.Status}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light blue" onclick="editTask(${task.ID})"><i class="material-icons">edit</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteTask(${task.ID})"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar tarefas: " + error.message, "error");
+        });
+      }
+
+      function loadProjectsAndUsersForSelects() {
+        google.script.run.withSuccessHandler(function(projects) {
+          var select = document.getElementById("taskProject");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha o projeto</option>`;
+          projects.forEach(function(project) {
+            var option = document.createElement("option");
+            option.value = project.ID;
+            option.innerText = project.NomeProjeto;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+          if (currentProjectId) {
+            select.value = currentProjectId;
+            M.FormSelect.init(select);
+          }
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar projetos para seleção: " + error.message, "error");
+        }).apiGetAllProjects();
+
+        google.script.run.withSuccessHandler(function(users) {
+          var select = document.getElementById("taskResponsible");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha o responsável</option>`;
+          users.forEach(function(user) {
+            var option = document.createElement("option");
+            option.value = user.ID;
+            option.innerText = user.Nome;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar usuários para seleção: " + error.message, "error");
+        }).apiGetAllUsers();
+      }
+
+      function editTask(taskId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(task) {
+          hideLoading();
+          document.getElementById("taskId").value = task.ID;
+          document.getElementById("taskDescription").value = task.Descricao;
+          document.getElementById("taskDueDate").value = task.Prazo;
+          document.getElementById("taskStatus").value = task.Status;
+          M.updateTextFields();
+          M.FormSelect.init(document.getElementById("taskStatus"));
+          loadProjectsAndUsersForSelects(); // Carregar projetos e usuários antes de definir os valores
+          setTimeout(function() {
+            document.getElementById("taskProject").value = task.ProjetoID;
+            document.getElementById("taskResponsible").value = task.ResponsavelID;
+            M.FormSelect.init(document.getElementById("taskProject"));
+            M.FormSelect.init(document.getElementById("taskResponsible"));
+          }, 100);
+          var instance = M.Modal.getInstance(document.getElementById("modalAddTask"));
+          instance.open();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados da tarefa: " + error.message, "error");
+        }).apiGetTaskById(taskId);
+      }
+
+      function saveTask() {
+        showLoading();
+        var taskId = document.getElementById("taskId").value;
+        var taskData = {
+          ProjetoID: document.getElementById("taskProject").value,
+          Descricao: document.getElementById("taskDescription").value,
+          ResponsavelID: document.getElementById("taskResponsible").value,
+          Prazo: document.getElementById("taskDueDate").value,
+          Status: document.getElementById("taskStatus").value
+        };
+
+        var apiCall = taskId ? google.script.run.apiUpdateTask(taskId, taskData) : google.script.run.apiCreateTask(taskData);
+
+        apiCall.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddTask")).close();
+            loadTasksTable(currentProjectId);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar tarefa: " + error.message, "error");
+        });
+      }
+
+      function deleteTask(taskId) {
+        if (confirm("Tem certeza que deseja deletar esta tarefa?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadTasksTable(currentProjectId);
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar tarefa: " + error.message, "error");
+          }).apiDeleteTask(taskId);
+        }
+      }
+
+      // Inicializa a tabela de tarefas ao carregar a página
+      loadTasksTable();
+      loadProjectsAndUsersForSelects(); // Carrega projetos e usuários para os selects do modal
+    </script>
+  </body>
+</html>

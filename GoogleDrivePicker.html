@@ -1,0 +1,144 @@
+<!-- GoogleDrivePicker.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      // Use the API Loader script to load google.picker and gapi.auth.
+      google.load("picker", "1");
+      google.load("gapi", "client");
+      google.load("gapi.auth", "2");
+
+      // A simple button to initiate the Picker API
+      function createPicker(callback) {
+        var oauthToken = '';
+        var picker = null;
+
+        function onApiLoad() {
+          gapi.client.load('drive', 'v2', onDriveApiLoad);
+        }
+
+        function onDriveApiLoad() {
+          // Load the Google Drive API
+          // This is a placeholder, actual Drive API calls would go here
+        }
+
+        function onAuthApiLoad() {
+          window.gapi.auth.authorize(
+            {
+              'client_id': 'YOUR_CLIENT_ID.apps.googleusercontent.com', // Replace with your actual client ID
+              'scope': ['https://www.googleapis.com/auth/drive.readonly'],
+              'immediate': false
+            },
+            handleAuthResult
+          );
+        }
+
+        function handleAuthResult(authResult) {
+          if (authResult && !authResult.error) {
+            oauthToken = authResult.access_token;
+            createDrivePicker();
+          } else {
+            console.error("Erro de autenticação: " + authResult.error);
+            alert("Erro de autenticação. Verifique o console para mais detalhes.");
+          }
+        }
+
+        function createDrivePicker() {
+          if (oauthToken) {
+            var view = new google.picker.View(google.picker.ViewId.DOCS);
+            view.setMimeTypes("image/png,image/jpeg,image/jpg,application/pdf,application/vnd.google-apps.document,application/vnd.google-apps.spreadsheet");
+
+            picker = new google.picker.PickerBuilder()
+              .addView(view)
+              .setOAuthToken(oauthToken)
+              .setDeveloperKey('YOUR_DEVELOPER_KEY') // Replace with your actual developer key
+              .setCallback(pickerCallback)
+              .build();
+            picker.setVisible(true);
+          }
+        }
+
+        function pickerCallback(data) {
+          if (data[google.picker.Response.ACTION] == google.picker.Action.PICKED) {
+            var doc = data[google.picker.Response.DOCUMENTS][0];
+            console.log('Documento selecionado: ' + doc.name + ' (' + doc.id + ')');
+            if (callback) {
+              callback(doc);
+            }
+          }
+        }
+
+        // Public API for the picker
+        return {
+          show: function() {
+            onAuthApiLoad();
+          }
+        };
+      }
+
+      // Exemplo de uso:
+      // var myPicker = createPicker(function(selectedDoc) {
+      //   console.log("Arquivo selecionado pelo usuário:", selectedDoc);
+      //   // Faça algo com o arquivo selecionado, como enviar para o Apps Script
+      //   google.script.run.withSuccessHandler(function(result) {
+      //     console.log("Resultado do Apps Script:", result);
+      //   }).handlePickedFile(selectedDoc.id, selectedDoc.name, selectedDoc.mimeType);
+      // });
+
+      // function openPicker() {
+      //   myPicker.show();
+      // }
+
+      // Para usar no Apps Script, você precisaria de uma função como esta:
+      // function showDrivePicker() {
+      //   var html = HtmlService.createHtmlOutputFromFile('GoogleDrivePicker')
+      //       .setWidth(600)
+      //       .setHeight(425);
+      //   SpreadsheetApp.getUi().showModalDialog(html, 'Selecione um arquivo do Drive');
+      // }
+
+      // E no Code.gs, uma função handlePickedFile(fileId, fileName, mimeType) para processar a seleção.
+
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Seletor de Arquivos do Google Drive</h3>
+          <p>Este é um componente de interface para integrar o Google Drive Picker. Ele permite que os usuários selecionem arquivos diretamente do Google Drive.</p>
+          <p>Para utilizá-lo, você precisará configurar seu Client ID e Developer Key no código JavaScript acima.</p>
+          <button class="btn waves-effect waves-light" onclick="openPicker()">
+            Abrir Seletor do Drive
+            <i class="material-icons right">folder_open</i>
+          </button>
+          <div id="selected-file-info" style="margin-top: 20px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var globalPickerInstance = null;
+
+      function openPicker() {
+        if (!globalPickerInstance) {
+          globalPickerInstance = createPicker(function(selectedDoc) {
+            document.getElementById("selected-file-info").innerHTML = `
+              <p><b>Arquivo Selecionado:</b> ${selectedDoc.name}</p>
+              <p><b>ID:</b> ${selectedDoc.id}</p>
+              <p><b>Link:</b> <a href="${selectedDoc.url}" target="_blank">Abrir no Drive</a></p>
+            `;
+            // Aqui você pode chamar uma função do Apps Script para processar o arquivo selecionado
+            // Exemplo:
+            // google.script.run.withSuccessHandler(function(result) {
+            //   showToast("Arquivo processado no servidor!", "success");
+            // }).handlePickedFile(selectedDoc.id, selectedDoc.name, selectedDoc.mimeType);
+          });
+        }
+        globalPickerInstance.show();
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,155 @@
+<!-- EmployeeDashboard.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Meu Dashboard</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6 l4">
+          <div class="card-panel center-align blue lighten-5">
+            <i class="material-icons large blue-text">work</i>
+            <h5 class="blue-text">Meus Projetos</h5>
+            <h4 class="blue-text" id="my-projects-count">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l4">
+          <div class="card-panel center-align red lighten-5">
+            <i class="material-icons large red-text">assignment_late</i>
+            <h5 class="red-text">Tarefas Pendentes</h5>
+            <h4 class="red-text" id="my-pending-tasks">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l4">
+          <div class="card-panel center-align teal lighten-5">
+            <i class="material-icons large teal-text">assignment_turned_in</i>
+            <h5 class="teal-text">Tarefas Concluídas</h5>
+            <h4 class="teal-text" id="my-completed-tasks">0</h4>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Minha Distribuição de Status de Tarefas</h5>
+            <canvas id="myTaskStatusChart"></canvas>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Minhas Tarefas Recentes</h5>
+            <ul class="collection" id="recent-tasks-list">
+              <!-- Tarefas recentes serão carregadas aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="fixed-action-btn">
+        <a class="btn-floating btn-large red">
+          <i class="large material-icons">menu</i>
+        </a>
+        <ul>
+          <li><a class="btn-floating yellow darken-1" onclick="loadProjectManagementPage()"><i class="material-icons">work</i></a></li>
+          <li><a class="btn-floating green" onclick="loadTaskManagementPage()"><i class="material-icons">assignment</i></a></li>
+          <li><a class="btn-floating blue" onclick="loadEvaluationPage()"><i class="material-icons">assessment</i></a></li>
+          <li><a class="btn-floating orange" onclick="loadGeminiChatPage()"><i class="material-icons">chat</i></a></li>
+          <li><a class="btn-floating grey" onclick="loadDriveFilesPage()"><i class="material-icons">folder</i></a></li>
+          <li><a class="btn-floating teal" onclick="loadSettingsPage()"><i class="material-icons">settings</i></a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        M.FloatingActionButton.init(document.querySelectorAll(".fixed-action-btn"), {
+          direction: "left",
+          hoverEnabled: false
+        });
+      });
+
+      function renderEmployeeDashboard(data) {
+        document.getElementById("my-projects-count").innerText = data.projectStats.myProjectsCount;
+        document.getElementById("my-pending-tasks").innerText = data.taskStats.myPendingTasks;
+        document.getElementById("my-completed-tasks").innerText = data.taskStats.myCompletedTasks;
+        // As métricas de aderência e compreensão virão do backend, se implementadas no DashboardDataAggregator
+        // document.getElementById("my-avg-adherence").innerText = data.averageAdherence + 
+        // document.getElementById("my-avg-understanding").innerText = data.averageUnderstanding + 
+
+        // Renderizar gráfico de status de tarefas
+        renderChart("myTaskStatusChart", data.taskStats.statusDistribution, "doughnut", "Minha Distribuição de Status de Tarefas");
+
+        // Renderizar tarefas recentes (exemplo, você precisaria de um endpoint para isso)
+        var recentTasksList = document.getElementById("recent-tasks-list");
+        recentTasksList.innerHTML = ""; // Limpar lista existente
+        if (data.recentTasks && data.recentTasks.length > 0) {
+          data.recentTasks.forEach(function(task) {
+            var li = document.createElement("li");
+            li.className = "collection-item";
+            li.innerHTML = `<div>${task.Descricao} <span class="new badge" data-badge-caption="">${task.Status}</span><a href="#!" class="secondary-content"><i class="material-icons">send</i></a></div>`;
+            recentTasksList.appendChild(li);
+          });
+        } else {
+          recentTasksList.innerHTML = 
+            `<li class="collection-item">Nenhuma tarefa recente.</li>`;
+        }
+      }
+
+      function renderChart(canvasId, dataObject, type, title) {
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        var labels = Object.keys(dataObject);
+        var data = Object.values(dataObject);
+
+        new Chart(ctx, {
+          type: type,
+          data: {
+            labels: labels,
+            datasets: [{
+              label: title,
+              data: data,
+              backgroundColor: [
+                "rgba(255, 99, 132, 0.6)",
+                "rgba(54, 162, 235, 0.6)",
+                "rgba(255, 206, 86, 0.6)",
+                "rgba(75, 192, 192, 0.6)",
+                "rgba(153, 102, 255, 0.6)",
+                "rgba(255, 159, 64, 0.6)"
+              ],
+              borderColor: [
+                "rgba(255, 99, 132, 1)",
+                "rgba(54, 162, 235, 1)",
+                "rgba(255, 206, 86, 1)",
+                "rgba(75, 192, 192, 1)",
+                "rgba(153, 102, 255, 1)",
+                "rgba(255, 159, 64, 1)"
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+              },
+              title: {
+                display: true,
+                text: title
+              }
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

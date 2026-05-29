@@ -1,0 +1,145 @@
+<!-- GoogleCalendarIntegration.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Integração com Google Calendar</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Eventos do Calendário</h5>
+            <p>Visualize e gerencie eventos do Google Calendar relacionados aos seus projetos e tarefas.</p>
+            <button class="btn waves-effect waves-light" onclick="loadCalendarEvents()">
+              Carregar Eventos
+              <i class="material-icons right">event</i>
+            </button>
+            <ul class="collection" id="calendar-events-list" style="margin-top: 20px;">
+              <!-- Eventos do calendário serão carregados aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Criar Evento no Calendário</h5>
+            <form id="createCalendarEventForm">
+              <div class="input-field">
+                <input id="eventTitle" type="text" class="validate" required>
+                <label for="eventTitle">Título do Evento</label>
+              </div>
+              <div class="input-field">
+                <textarea id="eventDescription" class="materialize-textarea"></textarea>
+                <label for="eventDescription">Descrição</label>
+              </div>
+              <div class="input-field">
+                <input id="eventStartDate" type="text" class="datepicker" required>
+                <label for="eventStartDate">Data de Início</label>
+              </div>
+              <div class="input-field">
+                <input id="eventStartTime" type="text" class="timepicker" required>
+                <label for="eventStartTime">Hora de Início</label>
+              </div>
+              <div class="input-field">
+                <input id="eventEndDate" type="text" class="datepicker">
+                <label for="eventEndDate">Data de Fim (opcional)</label>
+              </div>
+              <div class="input-field">
+                <input id="eventEndTime" type="text" class="timepicker">
+                <label for="eventEndTime">Hora de Fim (opcional)</label>
+              </div>
+              <div class="input-field">
+                <input id="eventGuests" type="email" class="validate" multiple data-role="materialchips">
+                <label for="eventGuests">Convidados (emails separados por vírgula)</label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action" style="margin-top: 20px;">
+                Criar Evento
+                <i class="material-icons right">add_event</i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var datepickers = document.querySelectorAll(".datepicker");
+        M.Datepicker.init(datepickers, { format: "yyyy-mm-dd" });
+        var timepickers = document.querySelectorAll(".timepicker");
+        M.Timepicker.init(timepickers, { twelveHour: false });
+        var chips = document.querySelectorAll(".chips-initial");
+        M.Chips.init(chips);
+      });
+
+      function loadCalendarEvents() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(events) {
+          hideLoading();
+          var eventsList = document.getElementById("calendar-events-list");
+          eventsList.innerHTML = "";
+          if (events.length === 0) {
+            eventsList.innerHTML = `<li class="collection-item">Nenhum evento encontrado.</li>`;
+            return;
+          }
+          events.forEach(function(event) {
+            var li = document.createElement("li");
+            li.className = "collection-item avatar";
+            li.innerHTML = `
+              <i class="material-icons circle blue">event</i>
+              <span class="title">${event.summary}</span>
+              <p>${event.start.dateTime ? new Date(event.start.dateTime).toLocaleString() : new Date(event.start.date).toLocaleDateString()} - 
+                 ${event.end.dateTime ? new Date(event.end.dateTime).toLocaleString() : new Date(event.end.date).toLocaleDateString()}<br>
+                 ${event.description || ""}
+              </p>
+              <a href="${event.htmlLink}" target="_blank" class="secondary-content"><i class="material-icons">link</i></a>
+            `;
+            eventsList.appendChild(li);
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar eventos do calendário: " + error.message, "error");
+        }).apiGetCalendarEvents(); // Supondo uma API para obter eventos do calendário
+      }
+
+      document.getElementById("createCalendarEventForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        showLoading();
+
+        var eventData = {
+          title: document.getElementById("eventTitle").value,
+          description: document.getElementById("eventDescription").value,
+          startDate: document.getElementById("eventStartDate").value,
+          startTime: document.getElementById("eventStartTime").value,
+          endDate: document.getElementById("eventEndDate").value,
+          endTime: document.getElementById("eventEndTime").value,
+          guests: M.Chips.getInstance(document.getElementById("eventGuests")).chipsData.map(chip => chip.tag)
+        };
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("createCalendarEventForm").reset();
+            loadCalendarEvents();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao criar evento no calendário: " + error.message, "error");
+        }).apiCreateCalendarEvent(eventData); // Supondo uma API para criar evento no calendário
+      });
+    </script>
+  </body>
+</html>

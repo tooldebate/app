@@ -1,0 +1,228 @@
+<!-- ProjectManagement.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciamento de Projetos</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddProject"><i class="material-icons left">add</i>Adicionar Projeto</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Nome do Projeto</th>
+                  <th>Status</th>
+                  <th>Início</th>
+                  <th>Fim</th>
+                  <th>Responsável</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="projects-table-body">
+              <!-- Dados dos projetos serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar/Editar Projeto -->
+      <div id="modalAddProject" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar/Editar Projeto</h4>
+          <form id="projectForm">
+            <input type="hidden" id="projectId">
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="projectName" type="text" class="validate" required>
+                <label for="projectName">Nome do Projeto</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="projectDescription" class="materialize-textarea"></textarea>
+                <label for="projectDescription">Descrição</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="projectStatus">
+                  <option value="Pendente">Pendente</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Concluído">Concluído</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+                <label>Status</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s6">
+                <input id="projectStartDate" type="text" class="datepicker" required>
+                <label for="projectStartDate">Data de Início</label>
+              </div>
+              <div class="input-field col s6">
+                <input id="projectEndDate" type="text" class="datepicker">
+                <label for="projectEndDate">Data de Fim</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="projectResponsible">
+                  <!-- Usuários serão carregados aqui -->
+                </select>
+                <label>Responsável</label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveProject()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var datepickers = document.querySelectorAll(".datepicker");
+        M.Datepicker.init(datepickers, { format: "yyyy-mm-dd" });
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+      });
+
+      function loadProjectsTable() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(projects) {
+          hideLoading();
+          var tableBody = document.getElementById("projects-table-body");
+          tableBody.innerHTML = "";
+          projects.forEach(function(project) {
+            var row = `
+              <tr>
+                <td>${project.ID}</td>
+                <td><a href="#!" onclick="loadProjectDetailsPage(${project.ID})">${project.NomeProjeto}</a></td>
+                <td>${project.Status}</td>
+                <td>${project.DataInicio}</td>
+                <td>${project.DataFim || "N/A"}</td>
+                <td>${project.ResponsavelNome || "N/A"}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light blue" onclick="editProject(${project.ID})"><i class="material-icons">edit</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteProject(${project.ID})"><i class="material-icons">delete</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light green" onclick="loadTaskManagementPage(${project.ID})"><i class="material-icons">assignment</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar projetos: " + error.message, "error");
+        }).apiGetAllProjects();
+      }
+
+      function loadUsersForSelect() {
+        google.script.run.withSuccessHandler(function(users) {
+          var select = document.getElementById("projectResponsible");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha o responsável</option>`;
+          users.forEach(function(user) {
+            var option = document.createElement("option");
+            option.value = user.ID;
+            option.innerText = user.Nome;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar usuários para seleção: " + error.message, "error");
+        }).apiGetAllUsers();
+      }
+
+      function editProject(projectId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(project) {
+          hideLoading();
+          document.getElementById("projectId").value = project.ID;
+          document.getElementById("projectName").value = project.NomeProjeto;
+          document.getElementById("projectDescription").value = project.Descricao;
+          document.getElementById("projectStatus").value = project.Status;
+          document.getElementById("projectStartDate").value = project.DataInicio;
+          document.getElementById("projectEndDate").value = project.DataFim;
+          M.updateTextFields();
+          M.FormSelect.init(document.getElementById("projectStatus"));
+          loadUsersForSelect(); // Carregar usuários antes de definir o responsável
+          setTimeout(function() {
+            document.getElementById("projectResponsible").value = project.ResponsavelID;
+            M.FormSelect.init(document.getElementById("projectResponsible"));
+          }, 100);
+          var instance = M.Modal.getInstance(document.getElementById("modalAddProject"));
+          instance.open();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados do projeto: " + error.message, "error");
+        }).apiGetProjectById(projectId);
+      }
+
+      function saveProject() {
+        showLoading();
+        var projectId = document.getElementById("projectId").value;
+        var projectData = {
+          NomeProjeto: document.getElementById("projectName").value,
+          Descricao: document.getElementById("projectDescription").value,
+          Status: document.getElementById("projectStatus").value,
+          DataInicio: document.getElementById("projectStartDate").value,
+          DataFim: document.getElementById("projectEndDate").value,
+          ResponsavelID: document.getElementById("projectResponsible").value
+        };
+
+        var apiCall = projectId ? google.script.run.apiUpdateProject(projectId, projectData) : google.script.run.apiCreateProject(projectData);
+
+        apiCall.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddProject")).close();
+            loadProjectsTable();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar projeto: " + error.message, "error");
+        });
+      }
+
+      function deleteProject(projectId) {
+        if (confirm("Tem certeza que deseja deletar este projeto e todas as suas tarefas e avaliações associadas?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadProjectsTable();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar projeto: " + error.message, "error");
+          }).apiDeleteProject(projectId);
+        }
+      }
+
+      // Inicializa a tabela de projetos ao carregar a página
+      loadProjectsTable();
+      loadUsersForSelect(); // Carrega usuários para o select do modal
+    </script>
+  </body>
+</html>

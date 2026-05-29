@@ -1,0 +1,131 @@
+<!-- UserRoleManagement.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciamento de Papéis de Usuário</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID do Usuário</th>
+                  <th>Nome do Usuário</th>
+                  <th>Email do Usuário</th>
+                  <th>Papel Atual</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="user-roles-table-body">
+              <!-- Papéis de usuário serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Editar Papel do Usuário -->
+      <div id="modalEditUserRole" class="modal">
+        <div class="modal-content">
+          <h4>Editar Papel do Usuário</h4>
+          <form id="editUserRoleForm">
+            <input type="hidden" id="editUserId">
+            <p>Usuário: <span id="editUserName"></span> (<span id="editUserEmail"></span>)</p>
+            <div class="input-field">
+              <select id="editUserRoleSelect">
+                <option value="admin">Administrador</option>
+                <option value="employee">Funcionário</option>
+                <option value="viewer">Visualizador</option>
+              </select>
+              <label>Novo Papel</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveUserRole()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadUserRoles();
+      });
+
+      function loadUserRoles() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(users) {
+          hideLoading();
+          var tableBody = document.getElementById("user-roles-table-body");
+          tableBody.innerHTML = "";
+          if (users.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>`;
+            return;
+          }
+          users.forEach(function(user) {
+            var row = `
+              <tr>
+                <td>${user.ID}</td>
+                <td>${user.Nome}</td>
+                <td>${user.Email}</td>
+                <td>${user.Role}</td>
+                <td>
+                  <a href="#modalEditUserRole" class="btn-small waves-effect waves-light blue modal-trigger" onclick="openEditUserRoleModal(${user.ID}, '${user.Nome}', '${user.Email}', '${user.Role}')"><i class="material-icons">edit</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar papéis de usuário: " + error.message, "error");
+        }).apiGetAllUsersWithRoles(); // Supondo uma API para obter todos os usuários com seus papéis
+      }
+
+      function openEditUserRoleModal(userId, userName, userEmail, currentRole) {
+        document.getElementById("editUserId").value = userId;
+        document.getElementById("editUserName").innerText = userName;
+        document.getElementById("editUserEmail").innerText = userEmail;
+        document.getElementById("editUserRoleSelect").value = currentRole;
+        M.FormSelect.init(document.getElementById("editUserRoleSelect"));
+      }
+
+      function saveUserRole() {
+        var userId = document.getElementById("editUserId").value;
+        var newRole = document.getElementById("editUserRoleSelect").value;
+        if (!userId || !newRole) {
+          showToast("Por favor, selecione um usuário e um papel.", "error");
+          return;
+        }
+
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalEditUserRole")).close();
+            loadUserRoles();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar papel do usuário: " + error.message, "error");
+        }).apiUpdateUserRole(userId, newRole); // Supondo uma API para atualizar o papel do usuário
+      }
+    </script>
+  </body>
+</html>

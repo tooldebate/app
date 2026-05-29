@@ -1,0 +1,98 @@
+<!-- TaskHistory.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Histórico de Tarefas</h3>
+          <div class="input-field">
+            <select id="taskHistorySelect">
+              <!-- Tarefas serão carregadas aqui -->
+            </select>
+            <label>Selecione uma Tarefa</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Eventos da Tarefa</h5>
+            <ul class="collection" id="task-history-list">
+              <!-- Histórico da tarefa será carregado aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadTasksForHistorySelect();
+
+        document.getElementById("taskHistorySelect").addEventListener("change", function() {
+          var taskId = this.value;
+          if (taskId) {
+            loadTaskHistory(taskId);
+          } else {
+            document.getElementById("task-history-list").innerHTML = "<li class=\"collection-item\">Selecione uma tarefa para ver o histórico.</li>";
+          }
+        });
+      });
+
+      function loadTasksForHistorySelect() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(tasks) {
+          hideLoading();
+          var select = document.getElementById("taskHistorySelect");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha uma tarefa</option>`;
+          tasks.forEach(function(task) {
+            var option = document.createElement("option");
+            option.value = task.ID;
+            option.innerText = task.Descricao + " (Projeto: " + task.ProjetoNome + ")";
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar tarefas para seleção: " + error.message, "error");
+        }).apiGetAllTasks(); // Supondo uma API para obter todas as tarefas
+      }
+
+      function loadTaskHistory(taskId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(history) {
+          hideLoading();
+          var historyList = document.getElementById("task-history-list");
+          historyList.innerHTML = "";
+          if (history.length === 0) {
+            historyList.innerHTML = "<li class=\"collection-item\">Nenhum histórico de alterações para esta tarefa.</li>";
+            return;
+          }
+          history.forEach(function(entry) {
+            var li = document.createElement("li");
+            li.className = "collection-item";
+            li.innerHTML = `
+              <div>
+                <b>${entry.UsuarioEmail}</b> alterou <b>${entry.Campo}</b> de "${entry.ValorAntigo}" para "${entry.ValorNovo}"
+                <div class="secondary-content">${new Date(entry.Timestamp).toLocaleString()}</div>
+              </div>
+            `;
+            historyList.appendChild(li);
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar histórico da tarefa: " + error.message, "error");
+        }).apiGetTaskHistory(taskId); // Supondo uma API para obter histórico de tarefas
+      }
+    </script>
+  </body>
+</html>

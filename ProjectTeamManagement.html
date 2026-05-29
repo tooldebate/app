@@ -1,0 +1,191 @@
+<!-- ProjectTeamManagement.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciamento de Equipe do Projeto</h3>
+          <div class="input-field">
+            <select id="projectTeamSelect">
+              <!-- Projetos serão carregados aqui -->
+            </select>
+            <label>Selecione um Projeto</label>
+          </div>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddTeamMember"><i class="material-icons left">person_add</i>Adicionar Membro</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID do Usuário</th>
+                  <th>Nome do Usuário</th>
+                  <th>Email do Usuário</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="project-team-table-body">
+              <!-- Membros da equipe do projeto serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar Membro à Equipe -->
+      <div id="modalAddTeamMember" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar Membro à Equipe do Projeto</h4>
+          <form id="addTeamMemberForm">
+            <div class="input-field">
+              <select id="teamMemberUserSelect">
+                <!-- Usuários serão carregados aqui -->
+              </select>
+              <label>Selecione o Usuário</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="addTeamMember()">Adicionar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadProjectsForTeamManagement();
+
+        document.getElementById("projectTeamSelect").addEventListener("change", function() {
+          var projectId = this.value;
+          if (projectId) {
+            loadProjectTeamMembers(projectId);
+          } else {
+            document.getElementById("project-team-table-body").innerHTML = "";
+          }
+        });
+      });
+
+      function loadProjectsForTeamManagement() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(projects) {
+          hideLoading();
+          var select = document.getElementById("projectTeamSelect");
+          select.innerHTML = 
+            `<option value="" disabled selected>Selecione um projeto</option>`;
+          projects.forEach(function(project) {
+            var option = document.createElement("option");
+            option.value = project.ID;
+            option.innerText = project.NomeProjeto;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar projetos: " + error.message, "error");
+        }).apiGetAllProjects();
+      }
+
+      function loadProjectTeamMembers(projectId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(members) {
+          hideLoading();
+          var tableBody = document.getElementById("project-team-table-body");
+          tableBody.innerHTML = "";
+          if (members.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4">Nenhum membro na equipe deste projeto.</td></tr>`;
+            return;
+          }
+          members.forEach(function(member) {
+            var row = `
+              <tr>
+                <td>${member.ID}</td>
+                <td>${member.Nome}</td>
+                <td>${member.Email}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="removeTeamMember(${projectId}, ${member.ID})"><i class="material-icons">remove</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar membros da equipe: " + error.message, "error");
+        }).apiGetProjectTeamMembers(projectId);
+      }
+
+      function loadUsersForTeamMemberSelect() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(users) {
+          hideLoading();
+          var select = document.getElementById("teamMemberUserSelect");
+          select.innerHTML = 
+            `<option value="" disabled selected>Selecione um usuário</option>`;
+          users.forEach(function(user) {
+            var option = document.createElement("option");
+            option.value = user.ID;
+            option.innerText = user.Nome + " (" + user.Email + ")";
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar usuários para seleção: " + error.message, "error");
+        }).apiGetAllUsers();
+      }
+
+      function addTeamMember() {
+        var projectId = document.getElementById("projectTeamSelect").value;
+        var userId = document.getElementById("teamMemberUserSelect").value;
+        if (!projectId || !userId) {
+          showToast("Por favor, selecione um projeto e um usuário.", "error");
+          return;
+        }
+
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddTeamMember")).close();
+            loadProjectTeamMembers(projectId);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao adicionar membro à equipe: " + error.message, "error");
+        }).apiAddUserToProjectTeam(projectId, userId);
+      }
+
+      function removeTeamMember(projectId, userId) {
+        if (confirm("Tem certeza que deseja remover este membro da equipe?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadProjectTeamMembers(projectId);
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao remover membro da equipe: " + error.message, "error");
+          }).apiRemoveUserFromProjectTeam(projectId, userId);
+        }
+      }
+    </script>
+  </body>
+</html>

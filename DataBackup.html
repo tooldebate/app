@@ -1,0 +1,158 @@
+<!-- DataBackup.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Backup de Dados</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Realizar Backup Manual</h5>
+            <p>Crie um backup completo dos dados da planilha para o Google Drive.</p>
+            <button class="btn waves-effect waves-light" onclick="initiateManualBackup()">
+              Fazer Backup Agora
+              <i class="material-icons right">cloud_download</i>
+            </button>
+            <div id="backupStatus" style="margin-top: 15px;"></div>
+          </div>
+        </div>
+
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Configurações de Backup Automático</h5>
+            <p>Configure a frequência para backups automáticos.</p>
+            <div class="input-field">
+              <select id="backupFrequency">
+                <option value="daily">Diário</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensal</option>
+                <option value="disabled">Desativado</option>
+              </select>
+              <label>Frequência de Backup</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="saveBackupSettings()">
+              Salvar Configurações
+              <i class="material-icons right">save</i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Histórico de Backups</h5>
+            <table class="striped responsive-table">
+              <thead>
+                <tr>
+                    <th>Data do Backup</th>
+                    <th>Tipo</th>
+                    <th>Arquivo no Drive</th>
+                    <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="backup-history-table-body">
+                <!-- Histórico de backups será carregado aqui -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadBackupSettings();
+        loadBackupHistory();
+      });
+
+      function initiateManualBackup() {
+        showLoading();
+        document.getElementById("backupStatus").innerText = "Iniciando backup...";
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("backupStatus").innerText = `Backup concluído! Arquivo: <a href="${result.fileUrl}" target="_blank">${result.fileName}</a>`;
+            loadBackupHistory();
+          } else {
+            showToast(result.message, "error");
+            document.getElementById("backupStatus").innerText = `Erro no backup: ${result.message}`;
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao iniciar backup: " + error.message, "error");
+          document.getElementById("backupStatus").innerText = `Erro ao iniciar backup: ${error.message}`;
+        }).apiInitiateManualBackup(); // Supondo uma API para iniciar backup manual
+      }
+
+      function loadBackupSettings() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(settings) {
+          hideLoading();
+          if (settings) {
+            document.getElementById("backupFrequency").value = settings.frequency || "disabled";
+            M.FormSelect.init(document.getElementById("backupFrequency"));
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar configurações de backup: " + error.message, "error");
+        }).apiGetBackupSettings(); // Supondo uma API para obter configurações de backup
+      }
+
+      function saveBackupSettings() {
+        showLoading();
+        var frequency = document.getElementById("backupFrequency").value;
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar configurações de backup: " + error.message, "error");
+        }).apiSaveBackupSettings(frequency); // Supondo uma API para salvar configurações de backup
+      }
+
+      function loadBackupHistory() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(history) {
+          hideLoading();
+          var tableBody = document.getElementById("backup-history-table-body");
+          tableBody.innerHTML = "";
+          if (history.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4">Nenhum histórico de backup encontrado.</td></tr>`;
+            return;
+          }
+          history.forEach(function(entry) {
+            var row = `
+              <tr>
+                <td>${new Date(entry.Timestamp).toLocaleString()}</td>
+                <td>${entry.Tipo}</td>
+                <td><a href="${entry.FileUrl}" target="_blank">${entry.FileName}</a></td>
+                <td>${entry.Status}</td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar histórico de backup: " + error.message, "error");
+        }).apiGetBackupHistory(); // Supondo uma API para obter histórico de backup
+      }
+    </script>
+  </body>
+</html>

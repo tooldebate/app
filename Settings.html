@@ -1,0 +1,138 @@
+<!-- Settings.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Configurações</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Configurações de Notificação</h5>
+            <form id="notificationSettingsForm">
+              <div class="switch">
+                <label>
+                  Desativado
+                  <input type="checkbox" id="emailNotifications">
+                  <span class="lever"></span>
+                  Notificações por Email
+                </label>
+              </div>
+              <div class="switch">
+                <label>
+                  Desativado
+                  <input type="checkbox" id="chatNotifications">
+                  <span class="lever"></span>
+                  Notificações no Google Chat
+                </label>
+              </div>
+              <div class="switch">
+                <label>
+                  Desativado
+                  <input type="checkbox" id="dailySummary">
+                  <span class="lever"></span>
+                  Resumo Diário
+                </label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action" style="margin-top: 20px;">
+                Salvar Configurações
+                <i class="material-icons right">save</i>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Configurações da API Gemini</h5>
+            <form id="geminiApiKeyForm">
+              <div class="input-field">
+                <input id="geminiApiKey" type="text" class="validate">
+                <label for="geminiApiKey">Chave da API Gemini</label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action" style="margin-top: 20px;">
+                Salvar Chave API
+                <i class="material-icons right">save</i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adicionar mais seções de configuração conforme necessário -->
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadUserSettings();
+      });
+
+      function loadUserSettings() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(settings) {
+          hideLoading();
+          document.getElementById("emailNotifications").checked = settings.emailEnabled;
+          document.getElementById("chatNotifications").checked = settings.chatEnabled;
+          document.getElementById("dailySummary").checked = settings.dailySummary;
+          M.updateTextFields();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar configurações do usuário: " + error.message, "error");
+        }).apiGetUserNotificationSettings();
+
+        google.script.run.withSuccessHandler(function(apiKey) {
+          document.getElementById("geminiApiKey").value = apiKey;
+          M.updateTextFields();
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar chave da API Gemini: " + error.message, "error");
+        }).apiGetGeminiApiKey(); // Supondo uma API para obter a chave Gemini
+      }
+
+      document.getElementById("notificationSettingsForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        showLoading();
+        var newSettings = {
+          emailEnabled: document.getElementById("emailNotifications").checked,
+          chatEnabled: document.getElementById("chatNotifications").checked,
+          dailySummary: document.getElementById("dailySummary").checked
+        };
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar configurações de notificação: " + error.message, "error");
+        }).apiSaveUserNotificationSettings(newSettings);
+      });
+
+      document.getElementById("geminiApiKeyForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        showLoading();
+        var apiKey = document.getElementById("geminiApiKey").value;
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar chave da API Gemini: " + error.message, "error");
+        }).apiSaveGeminiApiKey(apiKey); // Supondo uma API para salvar a chave Gemini
+      });
+    </script>
+  </body>
+</html>

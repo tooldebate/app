@@ -1,0 +1,178 @@
+<!-- TaskDetails.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Detalhes da Tarefa: <span id="task-detail-description"></span></h3>
+          <a class="waves-effect waves-light btn" onclick="loadTaskManagementPage()"><i class="material-icons left">arrow_back</i>Voltar às Tarefas</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Informações da Tarefa</h5>
+            <p><b>ID:</b> <span id="detail-task-id"></span></p>
+            <p><b>Projeto:</b> <span id="detail-task-project"></span></p>
+            <p><b>Descrição:</b> <span id="detail-task-description-full"></span></p>
+            <p><b>Responsável:</b> <span id="detail-task-responsible"></span></p>
+            <p><b>Prazo:</b> <span id="detail-task-due-date"></span></p>
+            <p><b>Status:</b> <span id="detail-task-status"></span></p>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Histórico da Tarefa</h5>
+            <ul class="collection" id="task-history-list">
+              <!-- Histórico da tarefa será carregado aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Comentários da Tarefa</h5>
+            <div id="task-comments-list">
+              <!-- Comentários serão carregados aqui -->
+            </div>
+            <div class="input-field">
+              <textarea id="newTaskComment" class="materialize-textarea"></textarea>
+              <label for="newTaskComment">Adicionar Comentário</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="addCommentToTask()">
+              Enviar Comentário
+              <i class="material-icons right">send</i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      var currentTaskDetailId = null;
+
+      function loadTaskDetailsPage(taskId) {
+        currentTaskDetailId = taskId;
+        showLoading();
+        google.script.run.withSuccessHandler(function(html) {
+          hideLoading();
+          document.getElementById("app-content").innerHTML = html;
+          M.AutoInit();
+          loadTaskDetails(taskId);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar detalhes da tarefa: " + error.message, "error");
+        }).HtmlOutputRenderer.renderHtmlTemplate("TaskDetails");
+      }
+
+      function loadTaskDetails(taskId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(task) {
+          hideLoading();
+          document.getElementById("task-detail-description").innerText = task.Descricao;
+          document.getElementById("detail-task-id").innerText = task.ID;
+          document.getElementById("detail-task-project").innerText = task.ProjetoNome || "N/A";
+          document.getElementById("detail-task-description-full").innerText = task.Descricao;
+          document.getElementById("detail-task-responsible").innerText = task.ResponsavelNome || "N/A";
+          document.getElementById("detail-task-due-date").innerText = task.Prazo || "N/A";
+          document.getElementById("detail-task-status").innerText = task.Status;
+
+          // Carregar histórico da tarefa
+          loadTaskHistory(taskId);
+
+          // Carregar comentários da tarefa
+          loadTaskComments(taskId);
+
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar detalhes da tarefa: " + error.message, "error");
+        }).apiGetTaskById(taskId);
+      }
+
+      function loadTaskHistory(taskId) {
+        google.script.run.withSuccessHandler(function(history) {
+          var historyList = document.getElementById("task-history-list");
+          historyList.innerHTML = "";
+          if (history.length === 0) {
+            historyList.innerHTML = "<li class=\"collection-item\">Nenhum histórico de alterações.</li>";
+            return;
+          }
+          history.forEach(function(entry) {
+            var li = document.createElement("li");
+            li.className = "collection-item";
+            li.innerHTML = `
+              <div>
+                <b>${entry.UsuarioEmail}</b> alterou <b>${entry.Campo}</b> de "${entry.ValorAntigo}" para "${entry.ValorNovo}"
+                <div class="secondary-content">${new Date(entry.Timestamp).toLocaleString()}</div>
+              </div>
+            `;
+            historyList.appendChild(li);
+          });
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar histórico da tarefa: " + error.message, "error");
+        }).apiGetTaskHistory(taskId); // Supondo uma API para histórico de tarefas
+      }
+
+      function loadTaskComments(taskId) {
+        google.script.run.withSuccessHandler(function(comments) {
+          var commentsList = document.getElementById("task-comments-list");
+          commentsList.innerHTML = "";
+          if (comments.length === 0) {
+            commentsList.innerHTML = "<p>Nenhum comentário para esta tarefa.</p>";
+            return;
+          }
+          comments.forEach(function(comment) {
+            var commentHtml = `
+              <div class="card-panel grey lighten-5 z-depth-1">
+                <div class="row valign-wrapper no-margin-bottom">
+                  <div class="col s1">
+                    <img src="https://www.gravatar.com/avatar/?d=mp" alt="" class="circle responsive-img"> <!-- notice the "circle" class -->
+                  </div>
+                  <div class="col s11">
+                    <span class="black-text">
+                      <b>${comment.UsuarioEmail}</b> em ${new Date(comment.DataComentario).toLocaleString()}<br>
+                      ${comment.Comentario}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `;
+            commentsList.innerHTML += commentHtml;
+          });
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar comentários da tarefa: " + error.message, "error");
+        }).apiGetTaskComments(taskId); // Supondo uma API para comentários de tarefas
+      }
+
+      function addCommentToTask() {
+        var commentText = document.getElementById("newTaskComment").value;
+        if (!commentText.trim()) {
+          showToast("O comentário não pode estar vazio.", "error");
+          return;
+        }
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("newTaskComment").value = "";
+            loadTaskComments(currentTaskDetailId);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao adicionar comentário: " + error.message, "error");
+        }).apiAddProjectComment(currentTaskDetailId, commentText); // Reutilizando a função de adicionar comentário de projeto, mas para tarefas
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,165 @@
+<!-- DriveFiles.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Arquivos do Google Drive</h3>
+          <div class="input-field">
+            <input id="driveFolderId" type="text" class="validate" placeholder="ID da Pasta do Drive (opcional)">
+            <label for="driveFolderId">ID da Pasta do Drive</label>
+          </div>
+          <button class="btn waves-effect waves-light" onclick="loadDriveFiles()">
+            Carregar Arquivos
+            <i class="material-icons right">folder_open</i>
+          </button>
+          <button class="btn waves-effect waves-light green modal-trigger" href="#modalUploadFile" style="margin-left: 10px;">
+            Upload de Arquivo
+            <i class="material-icons right">cloud_upload</i>
+          </button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>Nome do Arquivo</th>
+                  <th>Tipo</th>
+                  <th>Tamanho</th>
+                  <th>Última Modificação</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="drive-files-table-body">
+              <!-- Arquivos do Drive serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Upload de Arquivo -->
+      <div id="modalUploadFile" class="modal">
+        <div class="modal-content">
+          <h4>Upload de Arquivo para o Drive</h4>
+          <form id="uploadForm">
+            <div class="file-field input-field">
+              <div class="btn">
+                <span>Arquivo</span>
+                <input type="file" id="fileToUpload">
+              </div>
+              <div class="file-path-wrapper">
+                <input class="file-path validate" type="text" placeholder="Selecione o arquivo">
+              </div>
+            </div>
+            <div class="input-field">
+              <input id="uploadParentFolderId" type="text" class="validate" placeholder="ID da Pasta de Destino (opcional)">
+              <label for="uploadParentFolderId">ID da Pasta de Destino</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="uploadFile()">Upload</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+      });
+
+      function loadDriveFiles() {
+        showLoading();
+        var folderId = document.getElementById("driveFolderId").value;
+        google.script.run.withSuccessHandler(function(files) {
+          hideLoading();
+          var tableBody = document.getElementById("drive-files-table-body");
+          tableBody.innerHTML = "";
+          if (files.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5">Nenhum arquivo encontrado nesta pasta.</td></tr>`;
+            return;
+          }
+          files.forEach(function(file) {
+            var row = `
+              <tr>
+                <td><a href="${file.url}" target="_blank">${file.name}</a></td>
+                <td>${file.mimeType}</td>
+                <td>${(file.size / 1024).toFixed(2)} KB</td>
+                <td>${new Date(file.lastModified).toLocaleString()}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteDriveFile('${file.id}')"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar arquivos do Drive: " + error.message, "error");
+        }).apiListDriveFiles(folderId);
+      }
+
+      function uploadFile() {
+        var fileInput = document.getElementById("fileToUpload");
+        var file = fileInput.files[0];
+        if (!file) {
+          showToast("Por favor, selecione um arquivo para upload.", "error");
+          return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var fileData = e.target.result.split(",")[1]; // Base64 encoded data
+          var fileName = file.name;
+          var mimeType = file.type;
+          var parentFolderId = document.getElementById("uploadParentFolderId").value;
+
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              M.Modal.getInstance(document.getElementById("modalUploadFile")).close();
+              loadDriveFiles(); // Recarregar a lista de arquivos
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao fazer upload do arquivo: " + error.message, "error");
+          }).apiUploadFile(fileData, fileName, mimeType, parentFolderId);
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function deleteDriveFile(fileId) {
+        if (confirm("Tem certeza que deseja deletar este arquivo do Drive?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadDriveFiles();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar arquivo do Drive: " + error.message, "error");
+          }).apiDeleteDriveFile(fileId); // Supondo que você tenha uma função apiDeleteDriveFile
+        }
+      }
+
+      loadDriveFiles(); // Carrega arquivos da pasta raiz por padrão
+    </script>
+  </body>
+</html>

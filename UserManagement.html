@@ -1,0 +1,196 @@
+<!-- UserManagement.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciamento de Usuários</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddUser"><i class="material-icons left">person_add</i>Adicionar Usuário</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Ativo</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <!-- Dados dos usuários serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar/Editar Usuário -->
+      <div id="modalAddUser" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar/Editar Usuário</h4>
+          <form id="userForm">
+            <input type="hidden" id="userId">
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="userName" type="text" class="validate" required>
+                <label for="userName">Nome</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="userEmail" type="email" class="validate" required>
+                <label for="userEmail">Email</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="userPassword" type="password" class="validate">
+                <label for="userPassword">Senha (deixe em branco para não alterar)</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="userRole">
+                  <option value="" disabled selected>Escolha o papel</option>
+                  <option value="Administrador">Administrador</option>
+                  <option value="Funcionário">Funcionário</option>
+                </select>
+                <label>Papel</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col s12">
+                <label>
+                  <input type="checkbox" id="userActive" class="filled-in" />
+                  <span>Ativo</span>
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveUser()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+      });
+
+      function loadUsersTable() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(users) {
+          hideLoading();
+          var tableBody = document.getElementById("users-table-body");
+          tableBody.innerHTML = "";
+          users.forEach(function(user) {
+            var row = `
+              <tr>
+                <td>${user.ID}</td>
+                <td>${user.Nome}</td>
+                <td>${user.Email}</td>
+                <td>${user.Role}</td>
+                <td>${user.Ativo ? "Sim" : "Não"}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light blue" onclick="editUser(${user.ID})"><i class="material-icons">edit</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteUser(${user.ID})"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar usuários: " + error.message, "error");
+        }).apiGetAllUsers();
+      }
+
+      function editUser(userId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(user) {
+          hideLoading();
+          document.getElementById("userId").value = user.ID;
+          document.getElementById("userName").value = user.Nome;
+          document.getElementById("userEmail").value = user.Email;
+          document.getElementById("userRole").value = user.Role;
+          document.getElementById("userActive").checked = user.Ativo;
+          M.updateTextFields();
+          M.FormSelect.init(document.getElementById("userRole"));
+          var instance = M.Modal.getInstance(document.getElementById("modalAddUser"));
+          instance.open();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados do usuário: " + error.message, "error");
+        }).apiGetUserById(userId);
+      }
+
+      function saveUser() {
+        showLoading();
+        var userId = document.getElementById("userId").value;
+        var userData = {
+          Nome: document.getElementById("userName").value,
+          Email: document.getElementById("userEmail").value,
+          Role: document.getElementById("userRole").value,
+          Ativo: document.getElementById("userActive").checked
+        };
+        var password = document.getElementById("userPassword").value;
+        if (password) {
+          userData.Senha = password;
+        }
+
+        var apiCall = userId ? google.script.run.apiUpdateUser(userId, userData) : google.script.run.apiCreateUser(userData);
+
+        apiCall.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddUser")).close();
+            loadUsersTable();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar usuário: " + error.message, "error");
+        });
+      }
+
+      function deleteUser(userId) {
+        if (confirm("Tem certeza que deseja deletar este usuário?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadUsersTable();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar usuário: " + error.message, "error");
+          }).apiDeleteUser(userId);
+        }
+      }
+
+      // Inicializa a tabela de usuários ao carregar a página
+      loadUsersTable();
+    </script>
+  </body>
+</html>

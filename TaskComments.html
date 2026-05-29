@@ -1,0 +1,140 @@
+<!-- TaskComments.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Comentários da Tarefa</h3>
+          <div class="input-field">
+            <select id="commentTaskSelect">
+              <!-- Tarefas serão carregadas aqui -->
+            </select>
+            <label>Selecione uma Tarefa</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Comentários</h5>
+            <div id="task-comments-list">
+              <!-- Comentários serão carregados aqui -->
+            </div>
+            <div class="input-field">
+              <textarea id="newTaskComment" class="materialize-textarea"></textarea>
+              <label for="newTaskComment">Adicionar Comentário</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="addCommentToTask()">
+              Enviar Comentário
+              <i class="material-icons right">send</i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadTasksForCommentSelect();
+
+        document.getElementById("commentTaskSelect").addEventListener("change", function() {
+          var taskId = this.value;
+          if (taskId) {
+            loadTaskComments(taskId);
+          } else {
+            document.getElementById("task-comments-list").innerHTML = "<p>Selecione uma tarefa para ver os comentários.</p>";
+          }
+        });
+      });
+
+      function loadTasksForCommentSelect() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(tasks) {
+          hideLoading();
+          var select = document.getElementById("commentTaskSelect");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha uma tarefa</option>`;
+          tasks.forEach(function(task) {
+            var option = document.createElement("option");
+            option.value = task.ID;
+            option.innerText = task.Descricao + " (Projeto: " + task.ProjetoNome + ")";
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar tarefas para seleção: " + error.message, "error");
+        }).apiGetAllTasks(); // Supondo uma API para obter todas as tarefas
+      }
+
+      function loadTaskComments(taskId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(comments) {
+          hideLoading();
+          var commentsList = document.getElementById("task-comments-list");
+          commentsList.innerHTML = "";
+          if (comments.length === 0) {
+            commentsList.innerHTML = "<p>Nenhum comentário para esta tarefa.</p>";
+            return;
+          }
+          comments.forEach(function(comment) {
+            var commentHtml = `
+              <div class="card-panel grey lighten-5 z-depth-1">
+                <div class="row valign-wrapper no-margin-bottom">
+                  <div class="col s1">
+                    <img src="https://www.gravatar.com/avatar/?d=mp" alt="" class="circle responsive-img"> <!-- notice the "circle" class -->
+                  </div>
+                  <div class="col s11">
+                    <span class="black-text">
+                      <b>${comment.UsuarioEmail}</b> em ${new Date(comment.DataComentario).toLocaleString()}<br>
+                      ${comment.Comentario}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `;
+            commentsList.innerHTML += commentHtml;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar comentários da tarefa: " + error.message, "error");
+        }).apiGetTaskComments(taskId); // Supondo uma API para obter comentários de tarefas
+      }
+
+      function addCommentToTask() {
+        var taskId = document.getElementById("commentTaskSelect").value;
+        var commentText = document.getElementById("newTaskComment").value;
+        if (!taskId) {
+          showToast("Por favor, selecione uma tarefa para adicionar o comentário.", "error");
+          return;
+        }
+        if (!commentText.trim()) {
+          showToast("O comentário não pode estar vazio.", "error");
+          return;
+        }
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("newTaskComment").value = "";
+            loadTaskComments(taskId);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao adicionar comentário: " + error.message, "error");
+        }).apiAddProjectComment(taskId, commentText); // Reutilizando a função de adicionar comentário de projeto, mas para tarefas
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,271 @@
+<!-- ProjectTemplates.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Modelos de Projeto</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddTemplate"><i class="material-icons left">add</i>Criar Novo Modelo</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Nome do Modelo</th>
+                  <th>Descrição</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="templates-table-body">
+              <!-- Dados dos modelos serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar/Editar Modelo -->
+      <div id="modalAddTemplate" class="modal">
+        <div class="modal-content">
+          <h4>Criar/Editar Modelo de Projeto</h4>
+          <form id="templateForm">
+            <input type="hidden" id="templateId">
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="templateName" type="text" class="validate" required>
+                <label for="templateName">Nome do Modelo</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="templateDescription" class="materialize-textarea"></textarea>
+                <label for="templateDescription">Descrição do Modelo</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col s12">
+                <h5>Tarefas do Modelo (JSON)</h5>
+                <textarea id="templateTasksJson" class="materialize-textarea" placeholder="Ex: [{ \"Descricao\": \"Tarefa 1\", \"Prazo\": \"2026-06-01\" }]"></textarea>
+                <label for="templateTasksJson">Tarefas em formato JSON</label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveTemplate()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+      <!-- Modal para Criar Projeto a partir de Modelo -->
+      <div id="modalCreateFromTemplate" class="modal">
+        <div class="modal-content">
+          <h4>Criar Projeto a partir do Modelo: <span id="templateNameToCreate"></span></h4>
+          <form id="createFromTemplateForm">
+            <input type="hidden" id="selectedTemplateId">
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="newProjectName" type="text" class="validate" required>
+                <label for="newProjectName">Nome do Novo Projeto</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="newProjectDescription" class="materialize-textarea"></textarea>
+                <label for="newProjectDescription">Descrição do Novo Projeto</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s6">
+                <input id="newProjectStartDate" type="text" class="datepicker" required>
+                <label for="newProjectStartDate">Data de Início</label>
+              </div>
+              <div class="input-field col s6">
+                <input id="newProjectEndDate" type="text" class="datepicker">
+                <label for="newProjectEndDate">Data de Fim</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="newProjectResponsible">
+                  <!-- Usuários serão carregados aqui -->
+                </select>
+                <label>Responsável</label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="createProjectFromSelectedTemplate()">Criar Projeto</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        var datepickers = document.querySelectorAll(".datepicker");
+        M.Datepicker.init(datepickers, { format: "yyyy-mm-dd" });
+        loadProjectTemplatesTable();
+      });
+
+      function loadProjectTemplatesTable() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(templates) {
+          hideLoading();
+          var tableBody = document.getElementById("templates-table-body");
+          tableBody.innerHTML = "";
+          templates.forEach(function(template) {
+            var row = `
+              <tr>
+                <td>${template.ID}</td>
+                <td>${template.NomeModelo}</td>
+                <td>${template.DescricaoModelo || ""}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light blue" onclick="editTemplate(${template.ID})"><i class="material-icons">edit</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light green" onclick="openCreateFromTemplateModal(${template.ID}, \'${template.NomeModelo}\')"><i class="material-icons">add_circle_outline</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteTemplate(${template.ID})"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar modelos de projeto: " + error.message, "error");
+        }).apiGetProjectTemplates();
+      }
+
+      function saveTemplate() {
+        showLoading();
+        var templateId = document.getElementById("templateId").value;
+        var templateData = {
+          NomeModelo: document.getElementById("templateName").value,
+          DescricaoModelo: document.getElementById("templateDescription").value,
+          Tarefas: JSON.parse(document.getElementById("templateTasksJson").value || "[]")
+        };
+
+        var apiCall = templateId ? google.script.run.apiUpdateProjectTemplate(templateId, templateData) : google.script.run.apiCreateProjectTemplate(templateData);
+
+        apiCall.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddTemplate")).close();
+            loadProjectTemplatesTable();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar modelo: " + error.message, "error");
+        });
+      }
+
+      function editTemplate(templateId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(template) {
+          hideLoading();
+          document.getElementById("templateId").value = template.ID;
+          document.getElementById("templateName").value = template.NomeModelo;
+          document.getElementById("templateDescription").value = template.DescricaoModelo;
+          document.getElementById("templateTasksJson").value = JSON.stringify(template.Tarefas, null, 2);
+          M.updateTextFields();
+          var instance = M.Modal.getInstance(document.getElementById("modalAddTemplate"));
+          instance.open();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados do modelo: " + error.message, "error");
+        }).apiGetProjectTemplateById(templateId); // Supondo uma API para obter modelo por ID
+      }
+
+      function deleteTemplate(templateId) {
+        if (confirm("Tem certeza que deseja deletar este modelo de projeto?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadProjectTemplatesTable();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar modelo: " + error.message, "error");
+          }).apiDeleteProjectTemplate(templateId); // Supondo uma API para deletar modelo
+        }
+      }
+
+      function openCreateFromTemplateModal(templateId, templateName) {
+        document.getElementById("selectedTemplateId").value = templateId;
+        document.getElementById("templateNameToCreate").innerText = templateName;
+        // Limpar campos do formulário
+        document.getElementById("newProjectName").value = "";
+        document.getElementById("newProjectDescription").value = "";
+        document.getElementById("newProjectStartDate").value = "";
+        document.getElementById("newProjectEndDate").value = "";
+        M.updateTextFields();
+        loadUsersForNewProjectSelect(); // Carregar usuários para o select
+        var instance = M.Modal.getInstance(document.getElementById("modalCreateFromTemplate"));
+        instance.open();
+      }
+
+      function loadUsersForNewProjectSelect() {
+        google.script.run.withSuccessHandler(function(users) {
+          var select = document.getElementById("newProjectResponsible");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha o responsável</option>`;
+          users.forEach(function(user) {
+            var option = document.createElement("option");
+            option.value = user.ID;
+            option.innerText = user.Nome;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar usuários para seleção: " + error.message, "error");
+        }).apiGetAllUsers();
+      }
+
+      function createProjectFromSelectedTemplate() {
+        showLoading();
+        var templateId = document.getElementById("selectedTemplateId").value;
+        var newProjectData = {
+          NomeProjeto: document.getElementById("newProjectName").value,
+          Descricao: document.getElementById("newProjectDescription").value,
+          DataInicio: document.getElementById("newProjectStartDate").value,
+          DataFim: document.getElementById("newProjectEndDate").value,
+          ResponsavelID: document.getElementById("newProjectResponsible").value
+        };
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalCreateFromTemplate")).close();
+            loadProjectTemplatesTable(); // Recarregar a tabela de modelos
+            loadProjectManagementPage(); // Opcional: ir para a página de gerenciamento de projetos
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao criar projeto a partir do modelo: " + error.message, "error");
+        }).apiCreateProjectFromTemplate(templateId, newProjectData);
+      }
+    </script>
+  </body>
+</html>

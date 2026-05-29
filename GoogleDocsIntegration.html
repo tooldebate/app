@@ -1,0 +1,113 @@
+<!-- GoogleDocsIntegration.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Integração com Google Docs</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Documentos Recentes</h5>
+            <p>Visualize e gerencie documentos do Google Docs relacionados aos seus projetos.</p>
+            <button class="btn waves-effect waves-light" onclick="loadRecentDocs()">
+              Carregar Documentos
+              <i class="material-icons right">description</i>
+            </button>
+            <ul class="collection" id="docs-list" style="margin-top: 20px;">
+              <!-- Documentos serão carregados aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m8 offset-m2">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Criar Novo Documento</h5>
+            <form id="createDocForm">
+              <div class="input-field">
+                <input id="docTitle" type="text" class="validate" required>
+                <label for="docTitle">Título do Documento</label>
+              </div>
+              <div class="input-field">
+                <textarea id="docContent" class="materialize-textarea"></textarea>
+                <label for="docContent">Conteúdo Inicial (opcional)</label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action" style="margin-top: 20px;">
+                Criar Documento
+                <i class="material-icons right">add_box</i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        // M.AutoInit(); // Inicializa componentes Materialize CSS
+      });
+
+      function loadRecentDocs() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(docs) {
+          hideLoading();
+          var docsList = document.getElementById("docs-list");
+          docsList.innerHTML = "";
+          if (docs.length === 0) {
+            docsList.innerHTML = `<li class="collection-item">Nenhum documento encontrado.</li>`;
+            return;
+          }
+          docs.forEach(function(doc) {
+            var li = document.createElement("li");
+            li.className = "collection-item avatar";
+            li.innerHTML = `
+              <i class="material-icons circle blue">insert_drive_file</i>
+              <span class="title">${doc.title}</span>
+              <p>Última modificação: ${new Date(doc.modifiedDate).toLocaleString()}<br>
+                 <a href="${doc.alternateLink}" target="_blank">Abrir no Docs</a>
+              </p>
+            `;
+            docsList.appendChild(li);
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar documentos: " + error.message, "error");
+        }).apiGetRecentGoogleDocs(); // Supondo uma API para obter documentos recentes
+      }
+
+      document.getElementById("createDocForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        showLoading();
+
+        var docData = {
+          title: document.getElementById("docTitle").value,
+          content: document.getElementById("docContent").value
+        };
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("createDocForm").reset();
+            loadRecentDocs();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao criar documento: " + error.message, "error");
+        }).apiCreateGoogleDoc(docData); // Supondo uma API para criar documento
+      });
+    </script>
+  </body>
+</html>

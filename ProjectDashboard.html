@@ -1,0 +1,171 @@
+<!-- ProjectDashboard.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Dashboard do Projeto: <span id="project-dashboard-name"></span></h3>
+          <a class="waves-effect waves-light btn" onclick="loadProjectManagementPage()"><i class="material-icons left">arrow_back</i>Voltar aos Projetos</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Visão Geral do Projeto</h5>
+            <p><b>Status:</b> <span id="dashboard-project-status"></span></p>
+            <p><b>Progresso:</b> <span id="dashboard-project-progress"></span>%</p>
+            <p><b>Prazo:</b> <span id="dashboard-project-due-date"></span></p>
+            <p><b>Responsável:</b> <span id="dashboard-project-responsible"></span></p>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Métricas de Avaliação</h5>
+            <p><b>Aderência Média:</b> <span id="dashboard-project-adherence"></span>%</p>
+            <p><b>Compreensão Média:</b> <span id="dashboard-project-understanding"></span>%</p>
+            <p><b>Última Avaliação:</b> <span id="dashboard-project-last-evaluation"></span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Distribuição de Tarefas por Status</h5>
+            <canvas id="projectTaskStatusChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Membros da Equipe</h5>
+            <ul class="collection" id="project-team-list">
+              <!-- Membros da equipe serão carregados aqui -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      var currentProjectDashboardId = null;
+
+      document.addEventListener("DOMContentLoaded", function() {
+        // M.AutoInit(); // Inicializa componentes Materialize CSS
+      });
+
+      function loadProjectDashboardPage(projectId) {
+        currentProjectDashboardId = projectId;
+        showLoading();
+        google.script.run.withSuccessHandler(function(html) {
+          hideLoading();
+          document.getElementById("app-content").innerHTML = html;
+          M.AutoInit();
+          loadProjectDashboardData(projectId);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dashboard do projeto: " + error.message, "error");
+        }).HtmlOutputRenderer.renderHtmlTemplate("ProjectDashboard");
+      }
+
+      function loadProjectDashboardData(projectId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(data) {
+          hideLoading();
+          if (data) {
+            document.getElementById("project-dashboard-name").innerText = data.projectName;
+            document.getElementById("dashboard-project-status").innerText = data.status;
+            document.getElementById("dashboard-project-progress").innerText = data.progress;
+            document.getElementById("dashboard-project-due-date").innerText = data.dueDate || "N/A";
+            document.getElementById("dashboard-project-responsible").innerText = data.responsibleName || "N/A";
+            document.getElementById("dashboard-project-adherence").innerText = data.averageAdherence.toFixed(2);
+            document.getElementById("dashboard-project-understanding").innerText = data.averageUnderstanding.toFixed(2);
+            document.getElementById("dashboard-project-last-evaluation").innerText = data.lastEvaluationDate || "N/A";
+
+            renderChart("projectTaskStatusChart", data.taskStatusDistribution, "doughnut", "Distribuição de Tarefas por Status");
+
+            var teamList = document.getElementById("project-team-list");
+            teamList.innerHTML = "";
+            if (data.teamMembers && data.teamMembers.length > 0) {
+              data.teamMembers.forEach(function(member) {
+                var li = document.createElement("li");
+                li.className = "collection-item avatar";
+                li.innerHTML = `
+                  <img src="https://www.gravatar.com/avatar/?d=mp" alt="" class="circle">
+                  <span class="title">${member.Nome}</span>
+                  <p>${member.Email}<br>
+                     ${member.Role}
+                  </p>
+                `;
+                teamList.appendChild(li);
+              });
+            } else {
+              teamList.innerHTML = `<li class="collection-item">Nenhum membro na equipe.</li>`;
+            }
+
+          } else {
+            showToast("Não foi possível carregar os dados do dashboard do projeto.", "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados do dashboard do projeto: " + error.message, "error");
+        }).apiGetProjectDashboardData(projectId); // Supondo uma API para obter dados do dashboard do projeto
+      }
+
+      function renderChart(canvasId, dataObject, type, title) {
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        var labels = Object.keys(dataObject);
+        var data = Object.values(dataObject);
+
+        new Chart(ctx, {
+          type: type,
+          data: {
+            labels: labels,
+            datasets: [{
+              label: title,
+              data: data,
+              backgroundColor: [
+                "rgba(255, 99, 132, 0.6)",
+                "rgba(54, 162, 235, 0.6)",
+                "rgba(255, 206, 86, 0.6)",
+                "rgba(75, 192, 192, 0.6)",
+                "rgba(153, 102, 255, 0.6)",
+                "rgba(255, 159, 64, 0.6)"
+              ],
+              borderColor: [
+                "rgba(255, 99, 132, 1)",
+                "rgba(54, 162, 235, 1)",
+                "rgba(255, 206, 86, 1)",
+                "rgba(75, 192, 192, 1)",
+                "rgba(153, 102, 255, 1)",
+                "rgba(255, 159, 64, 1)"
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+              },
+              title: {
+                display: true,
+                text: title
+              }
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

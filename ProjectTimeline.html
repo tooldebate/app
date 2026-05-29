@@ -1,0 +1,197 @@
+<!-- ProjectTimeline.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      .timeline {
+        position: relative;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .timeline::after {
+        content: '';
+        position: absolute;
+        width: 6px;
+        background-color: #2196f3;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        margin-left: -3px;
+      }
+      .timeline-container {
+        padding: 10px 40px;
+        position: relative;
+        background-color: inherit;
+        width: 50%;
+      }
+      .timeline-container::after {
+        content: '';
+        position: absolute;
+        width: 25px;
+        height: 25px;
+        right: -17px;
+        background-color: white;
+        border: 4px solid #FF9800;
+        top: 15px;
+        border-radius: 50%;
+        z-index: 1;
+      }
+      .left {
+        left: 0;
+      }
+      .right {
+        left: 50%;
+      }
+      .left::before {
+        content: " ";
+        height: 0;
+        position: absolute;
+        top: 22px;
+        width: 0;
+        z-index: 1;
+        right: 30px;
+        border: medium solid white;
+        border-width: 10px 0 10px 10px;
+        border-color: transparent transparent transparent white;
+      }
+      .right::before {
+        content: " ";
+        height: 0;
+        position: absolute;
+        top: 22px;
+        width: 0;
+        z-index: 1;
+        left: 30px;
+        border: medium solid white;
+        border-width: 10px 10px 10px 0;
+        border-color: transparent white transparent transparent;
+      }
+      .right::after {
+        left: -16px;
+      }
+      .timeline-content {
+        padding: 20px 30px;
+        background-color: white;
+        position: relative;
+        border-radius: 6px;
+      }
+      @media screen and (max-width: 600px) {
+        .timeline::after {
+          left: 31px;
+        }
+        .timeline-container {
+          width: 100%;
+          padding-left: 70px;
+          padding-right: 25px;
+        }
+        .timeline-container::before {
+          left: 60px;
+          border: medium solid white;
+          border-width: 10px 10px 10px 0;
+          border-color: transparent white transparent transparent;
+        }
+        .left::after, .right::after {
+          left: 15px;
+        }
+        .right {
+          left: 0%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Linha do Tempo do Projeto</h3>
+          <div class="input-field">
+            <select id="timelineProjectSelect">
+              <!-- Projetos serão carregados aqui -->
+            </select>
+            <label>Selecione um Projeto</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="timeline" id="project-timeline">
+            <!-- Eventos da linha do tempo serão carregados aqui -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadProjectsForTimelineSelect();
+
+        document.getElementById("timelineProjectSelect").addEventListener("change", function() {
+          var projectId = this.value;
+          if (projectId) {
+            loadProjectTimeline(projectId);
+          } else {
+            document.getElementById("project-timeline").innerHTML = "<p class=\"center-align\">Selecione um projeto para ver a linha do tempo.</p>";
+          }
+        });
+      });
+
+      function loadProjectsForTimelineSelect() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(projects) {
+          hideLoading();
+          var select = document.getElementById("timelineProjectSelect");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha um projeto</option>`;
+          projects.forEach(function(project) {
+            var option = document.createElement("option");
+            option.value = project.ID;
+            option.innerText = project.NomeProjeto;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar projetos para seleção: " + error.message, "error");
+        }).apiGetAllProjects();
+      }
+
+      function loadProjectTimeline(projectId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(timelineEvents) {
+          hideLoading();
+          var timelineDiv = document.getElementById("project-timeline");
+          timelineDiv.innerHTML = "";
+          if (timelineEvents.length === 0) {
+            timelineDiv.innerHTML = "<p class=\"center-align\">Nenhum evento na linha do tempo para este projeto.</p>";
+            return;
+          }
+
+          timelineEvents.sort((a, b) => new Date(a.Data) - new Date(b.Data));
+
+          timelineEvents.forEach(function(event, index) {
+            var side = (index % 2 === 0) ? "left" : "right";
+            var eventHtml = `
+              <div class="timeline-container ${side}">
+                <div class="timeline-content">
+                  <h5>${event.Titulo}</h5>
+                  <p><b>Data:</b> ${new Date(event.Data).toLocaleDateString()}</p>
+                  <p>${event.Descricao}</p>
+                  ${event.Responsavel ? `<p><b>Responsável:</b> ${event.Responsavel}</p>` : ``}
+                </div>
+              </div>
+            `;
+            timelineDiv.innerHTML += eventHtml;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar linha do tempo do projeto: " + error.message, "error");
+        }).apiGetProjectTimeline(projectId); // Supondo uma API para obter a linha do tempo do projeto
+      }
+    </script>
+  </body>
+</html>

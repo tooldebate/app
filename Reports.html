@@ -1,0 +1,136 @@
+<!-- Reports.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Relatórios</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Relatório Detalhado de Projeto</h5>
+            <div class="input-field">
+              <select id="reportProjectSelect">
+                <!-- Projetos serão carregados aqui -->
+              </select>
+              <label>Selecione um Projeto</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="generateDetailedReport()">
+              Gerar Relatório
+              <i class="material-icons right">description</i>
+            </button>
+            <div id="detailedReportOutput" style="margin-top: 20px;"></div>
+          </div>
+        </div>
+
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Relatório de Status de Projeto</h5>
+            <div class="input-field">
+              <select id="statusReportProjectSelect">
+                <!-- Projetos serão carregados aqui -->
+              </select>
+              <label>Selecione um Projeto</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="generateStatusReport()">
+              Gerar Relatório de Status
+              <i class="material-icons right">assignment</i>
+            </button>
+            <div id="statusReportOutput" style="margin-top: 20px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adicionar mais seções de relatório conforme necessário -->
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadProjectsForReports();
+      });
+
+      function loadProjectsForReports() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(projects) {
+          hideLoading();
+          var detailedSelect = document.getElementById("reportProjectSelect");
+          var statusSelect = document.getElementById("statusReportProjectSelect");
+          detailedSelect.innerHTML = 
+            `<option value="" disabled selected>Escolha um projeto</option>`;
+          statusSelect.innerHTML = 
+            `<option value="" disabled selected>Escolha um projeto</option>`;
+
+          projects.forEach(function(project) {
+            var option1 = document.createElement("option");
+            option1.value = project.ID;
+            option1.innerText = project.NomeProjeto;
+            detailedSelect.appendChild(option1);
+
+            var option2 = document.createElement("option");
+            option2.value = project.ID;
+            option2.innerText = project.NomeProjeto;
+            statusSelect.appendChild(option2);
+          });
+          M.FormSelect.init(detailedSelect);
+          M.FormSelect.init(statusSelect);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar projetos para relatórios: " + error.message, "error");
+        }).apiGetAllProjects();
+      }
+
+      function generateDetailedReport() {
+        var projectId = document.getElementById("reportProjectSelect").value;
+        if (!projectId) {
+          showToast("Por favor, selecione um projeto.", "error");
+          return;
+        }
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("detailedReportOutput").innerHTML = 
+              `<p>Relatório gerado com sucesso. <a href="${result.fileUrl}" target="_blank">Abrir Relatório no Drive</a></p>`;
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao gerar relatório detalhado: " + error.message, "error");
+        }).apiGenerateDetailedProjectReport(projectId);
+      }
+
+      function generateStatusReport() {
+        var projectId = document.getElementById("statusReportProjectSelect").value;
+        if (!projectId) {
+          showToast("Por favor, selecione um projeto.", "error");
+          return;
+        }
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            document.getElementById("statusReportOutput").innerHTML = result.reportHtml;
+            showToast("Relatório de status gerado com sucesso.", "success");
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao gerar relatório de status: " + error.message, "error");
+        }).apiGenerateProjectStatusReport(projectId);
+      }
+    </script>
+  </body>
+</html>

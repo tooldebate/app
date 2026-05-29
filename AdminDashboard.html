@@ -1,0 +1,182 @@
+<!-- AdminDashboard.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Dashboard do Administrador</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align blue lighten-5">
+            <i class="material-icons large blue-text">people</i>
+            <h5 class="blue-text">Usuários Totais</h5>
+            <h4 class="blue-text" id="total-users">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align green lighten-5">
+            <i class="material-icons large green-text">person_add</i>
+            <h5 class="green-text">Usuários Ativos</h5>
+            <h4 class="green-text" id="active-users">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align orange lighten-5">
+            <i class="material-icons large orange-text">work</i>
+            <h5 class="orange-text">Projetos Totais</h5>
+            <h4 class="orange-text" id="total-projects">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align purple lighten-5">
+            <i class="material-icons large purple-text">assignment</i>
+            <h5 class="purple-text">Projetos Ativos</h5>
+            <h4 class="purple-text" id="active-projects">0</h4>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align red lighten-5">
+            <i class="material-icons large red-text">assignment_late</i>
+            <h5 class="red-text">Tarefas Pendentes</h5>
+            <h4 class="red-text" id="pending-tasks">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align teal lighten-5">
+            <i class="material-icons large teal-text">assignment_turned_in</i>
+            <h5 class="teal-text">Tarefas Concluídas</h5>
+            <h4 class="teal-text" id="completed-tasks">0</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align deep-purple lighten-5">
+            <i class="material-icons large deep-purple-text">check_circle</i>
+            <h5 class="deep-purple-text">Aderência Média</h5>
+            <h4 class="deep-purple-text" id="avg-adherence">0%</h4>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card-panel center-align indigo lighten-5">
+            <i class="material-icons large indigo-text">lightbulb_outline</i>
+            <h5 class="indigo-text">Compreensão Média</h5>
+            <h4 class="indigo-text" id="avg-understanding">0%</h4>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Distribuição de Status de Projetos</h5>
+            <canvas id="projectStatusChart"></canvas>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Distribuição de Status de Tarefas</h5>
+            <canvas id="taskStatusChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="fixed-action-btn">
+        <a class="btn-floating btn-large red">
+          <i class="large material-icons">menu</i>
+        </a>
+        <ul>
+          <li><a class="btn-floating red" onclick="loadUserManagementPage()"><i class="material-icons">people</i></a></li>
+          <li><a class="btn-floating yellow darken-1" onclick="loadProjectManagementPage()"><i class="material-icons">work</i></a></li>
+          <li><a class="btn-floating green" onclick="loadTaskManagementPage()"><i class="material-icons">assignment</i></a></li>
+          <li><a class="btn-floating blue" onclick="loadEvaluationPage()"><i class="material-icons">assessment</i></a></li>
+          <li><a class="btn-floating purple" onclick="loadReportPage()"><i class="material-icons">description</i></a></li>
+          <li><a class="btn-floating orange" onclick="loadGeminiChatPage()"><i class="material-icons">chat</i></a></li>
+          <li><a class="btn-floating grey" onclick="loadDriveFilesPage()"><i class="material-icons">folder</i></a></li>
+          <li><a class="btn-floating teal" onclick="loadSettingsPage()"><i class="material-icons">settings</i></a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        M.FloatingActionButton.init(document.querySelectorAll(".fixed-action-btn"), {
+          direction: "left",
+          hoverEnabled: false
+        });
+      });
+
+      function renderAdminDashboard(data) {
+        document.getElementById("total-users").innerText = data.userStats.totalUsers;
+        document.getElementById("active-users").innerText = data.userStats.activeUsers;
+        document.getElementById("total-projects").innerText = data.projectStats.totalProjects;
+        document.getElementById("active-projects").innerText = data.projectStats.activeProjects;
+        document.getElementById("pending-tasks").innerText = data.taskStats.pendingTasks;
+        document.getElementById("completed-tasks").innerText = data.taskStats.completedTasks;
+        // As métricas de aderência e compreensão virão do backend, se implementadas no DashboardDataAggregator
+        // document.getElementById("avg-adherence").innerText = data.averageAdherence + 
+        // document.getElementById("avg-understanding").innerText = data.averageUnderstanding + 
+
+        // Renderizar gráficos
+        renderChart("projectStatusChart", data.projectStats.statusDistribution, "doughnut", "Distribuição de Status de Projetos");
+        renderChart("taskStatusChart", data.taskStats.statusDistribution, "bar", "Distribuição de Status de Tarefas");
+      }
+
+      function renderChart(canvasId, dataObject, type, title) {
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        var labels = Object.keys(dataObject);
+        var data = Object.values(dataObject);
+
+        new Chart(ctx, {
+          type: type,
+          data: {
+            labels: labels,
+            datasets: [{
+              label: title,
+              data: data,
+              backgroundColor: [
+                "rgba(255, 99, 132, 0.6)",
+                "rgba(54, 162, 235, 0.6)",
+                "rgba(255, 206, 86, 0.6)",
+                "rgba(75, 192, 192, 0.6)",
+                "rgba(153, 102, 255, 0.6)",
+                "rgba(255, 159, 64, 0.6)"
+              ],
+              borderColor: [
+                "rgba(255, 99, 132, 1)",
+                "rgba(54, 162, 235, 1)",
+                "rgba(255, 206, 86, 1)",
+                "rgba(75, 192, 192, 1)",
+                "rgba(153, 102, 255, 1)",
+                "rgba(255, 159, 64, 1)"
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+              },
+              title: {
+                display: true,
+                text: title
+              }
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

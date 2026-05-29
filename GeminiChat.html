@@ -1,0 +1,124 @@
+<!-- GeminiChat.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      #chat-container { display: flex; flex-direction: column; height: 70vh; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+      #chat-messages { flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #f9f9f9; }
+      .message-bubble { margin-bottom: 10px; padding: 8px 12px; border-radius: 15px; max-width: 70%; word-wrap: break-word; }
+      .user-message { background-color: #e3f2fd; align-self: flex-end; margin-left: auto; }
+      .gemini-message { background-color: #e8f5e9; align-self: flex-start; margin-right: auto; }
+      #chat-input-form { display: flex; padding: 10px; border-top: 1px solid #e0e0e0; background-color: #ffffff; }
+      #chat-input { flex-grow: 1; margin-right: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Chat com Gemini AI</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div id="chat-container">
+            <div id="chat-messages"></div>
+            <form id="chat-input-form">
+              <div class="input-field" style="flex-grow: 1; margin-right: 10px;">
+                <input id="chat-input" type="text" placeholder="Digite sua mensagem...">
+                <label for="chat-input">Mensagem</label>
+              </div>
+              <button class="btn waves-effect waves-light" type="submit" name="action">
+                Enviar <i class="material-icons right">send</i>
+              </button>
+              <button class="btn waves-effect waves-light red darken-1" type="button" onclick="clearChat()" style="margin-left: 10px;">
+                Limpar Chat <i class="material-icons right">delete_forever</i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadChatHistory();
+      });
+
+      document.getElementById("chat-input-form").addEventListener("submit", function(event) {
+        event.preventDefault();
+        sendMessage();
+      });
+
+      function loadChatHistory() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(history) {
+          hideLoading();
+          var chatMessages = document.getElementById("chat-messages");
+          chatMessages.innerHTML = "";
+          history.forEach(function(entry) {
+            appendMessage(entry.parts[0].text, entry.role);
+          });
+          chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar histórico do chat: " + error.message, "error");
+        }).apiGetChatHistory();
+      }
+
+      function sendMessage() {
+        var chatInput = document.getElementById("chat-input");
+        var message = chatInput.value.trim();
+        if (message === "") return;
+
+        appendMessage(message, "user");
+        chatInput.value = "";
+        showLoading();
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            appendMessage(result.response, "gemini");
+          } else {
+            showToast(result.message, "error");
+            appendMessage("Erro: " + result.message, "gemini");
+          }
+          document.getElementById("chat-messages").scrollTop = document.getElementById("chat-messages").scrollHeight; // Scroll to bottom
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao enviar mensagem para Gemini: " + error.message, "error");
+          appendMessage("Erro ao conectar com Gemini: " + error.message, "gemini");
+          document.getElementById("chat-messages").scrollTop = document.getElementById("chat-messages").scrollHeight; // Scroll to bottom
+        }).apiSendChatMessageToGemini(message);
+      }
+
+      function appendMessage(message, sender) {
+        var chatMessages = document.getElementById("chat-messages");
+        var messageDiv = document.createElement("div");
+        messageDiv.className = "message-bubble " + (sender === "user" ? "user-message" : "gemini-message");
+        messageDiv.innerText = message;
+        chatMessages.appendChild(messageDiv);
+      }
+
+      function clearChat() {
+        if (confirm("Tem certeza que deseja limpar o histórico do chat?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast("Histórico do chat limpo.", "success");
+              document.getElementById("chat-messages").innerHTML = "";
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao limpar histórico do chat: " + error.message, "error");
+          }).apiClearChatHistory();
+        }
+      }
+    </script>
+  </body>
+</html>

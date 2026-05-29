@@ -1,0 +1,179 @@
+<!-- Analytics.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Análises e Métricas</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Desempenho Geral do Projeto</h5>
+            <canvas id="projectPerformanceChart"></canvas>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Distribuição de Status de Tarefas</h5>
+            <canvas id="taskStatusDistributionChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Aderência Média por Projeto</h5>
+            <canvas id="adherenceByProjectChart"></canvas>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Compreensão Média por Usuário</h5>
+            <canvas id="understandingByUserChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Tarefas Concluídas ao Longo do Tempo</h5>
+            <canvas id="tasksCompletedOverTimeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadAnalyticsData();
+      });
+
+      function loadAnalyticsData() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(data) {
+          hideLoading();
+          if (data) {
+            renderChart("projectPerformanceChart", data.projectPerformance, "bar", "Desempenho Geral do Projeto");
+            renderChart("taskStatusDistributionChart", data.taskStatusDistribution, "doughnut", "Distribuição de Status de Tarefas");
+            renderChart("adherenceByProjectChart", data.adherenceByProject, "bar", "Aderência Média por Projeto");
+            renderChart("understandingByUserChart", data.understandingByUser, "bar", "Compreensão Média por Usuário");
+            renderLineChart("tasksCompletedOverTimeChart", data.tasksCompletedOverTime, "Tarefas Concluídas ao Longo do Tempo");
+          } else {
+            showToast("Nenhum dado de análise disponível.", "info");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados de análise: " + error.message, "error");
+        }).apiGetAnalyticsData(); // Supondo uma API para obter dados de análise
+      }
+
+      function renderChart(canvasId, dataObject, type, title) {
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        var labels = Object.keys(dataObject);
+        var data = Object.values(dataObject);
+
+        new Chart(ctx, {
+          type: type,
+          data: {
+            labels: labels,
+            datasets: [{
+              label: title,
+              data: data,
+              backgroundColor: [
+                "rgba(255, 99, 132, 0.6)",
+                "rgba(54, 162, 235, 0.6)",
+                "rgba(255, 206, 86, 0.6)",
+                "rgba(75, 192, 192, 0.6)",
+                "rgba(153, 102, 255, 0.6)",
+                "rgba(255, 159, 64, 0.6)"
+              ],
+              borderColor: [
+                "rgba(255, 99, 132, 1)",
+                "rgba(54, 162, 235, 1)",
+                "rgba(255, 206, 86, 1)",
+                "rgba(75, 192, 192, 1)",
+                "rgba(153, 102, 255, 1)",
+                "rgba(255, 159, 64, 1)"
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+              },
+              title: {
+                display: true,
+                text: title
+              }
+            }
+          }
+        });
+      }
+
+      function renderLineChart(canvasId, dataArray, title) {
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        var labels = dataArray.map(item => item.date);
+        var data = dataArray.map(item => item.count);
+
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: title,
+              data: data,
+              borderColor: "rgba(75, 192, 192, 1)",
+              backgroundColor: "rgba(75, 192, 192, 0.2)",
+              fill: true,
+              tension: 0.1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+              },
+              title: {
+                display: true,
+                text: title
+              }
+            },
+            scales: {
+              x: {
+                type: "time",
+                time: {
+                  unit: "day"
+                },
+                title: {
+                  display: true,
+                  text: "Data"
+                }
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: "Número de Tarefas Concluídas"
+                }
+              }
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

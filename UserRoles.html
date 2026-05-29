@@ -1,0 +1,183 @@
+<!-- UserRoles.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciamento de Papéis de Usuário</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddRole"><i class="material-icons left">add</i>Adicionar Papel</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Nome do Papel</th>
+                  <th>Descrição</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="roles-table-body">
+              <!-- Dados dos papéis serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar/Editar Papel -->
+      <div id="modalAddRole" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar/Editar Papel</h4>
+          <form id="roleForm">
+            <input type="hidden" id="roleId">
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="roleName" type="text" class="validate" required>
+                <label for="roleName">Nome do Papel</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="roleDescription" class="materialize-textarea"></textarea>
+                <label for="roleDescription">Descrição</label>
+              </div>
+            </div>
+            <h5>Permissões</h5>
+            <div class="row">
+              <div class="col s12">
+                <label>
+                  <input type="checkbox" id="canCreateUser" class="filled-in" />
+                  <span>Pode Criar Usuário</span>
+                </label>
+              </div>
+              <div class="col s12">
+                <label>
+                  <input type="checkbox" id="canManageProjects" class="filled-in" />
+                  <span>Pode Gerenciar Projetos</span>
+                </label>
+              </div>
+              <div class="col s12">
+                <label>
+                  <input type="checkbox" id="canViewAllReports" class="filled-in" />
+                  <span>Pode Ver Todos os Relatórios</span>
+                </label>
+              </div>
+              <!-- Adicionar mais checkboxes para outras permissões -->
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveRole()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        loadRolesTable();
+      });
+
+      function loadRolesTable() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(roles) {
+          hideLoading();
+          var tableBody = document.getElementById("roles-table-body");
+          tableBody.innerHTML = "";
+          roles.forEach(function(role) {
+            var row = `
+              <tr>
+                <td>${role.ID}</td>
+                <td>${role.NomePapel}</td>
+                <td>${role.Descricao || ""}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light blue" onclick="editRole(${role.ID})"><i class="material-icons">edit</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteRole(${role.ID})"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar papéis: " + error.message, "error");
+        }).apiGetAllRoles(); // Supondo uma API para obter todos os papéis
+      }
+
+      function saveRole() {
+        showLoading();
+        var roleId = document.getElementById("roleId").value;
+        var roleData = {
+          NomePapel: document.getElementById("roleName").value,
+          Descricao: document.getElementById("roleDescription").value,
+          canCreateUser: document.getElementById("canCreateUser").checked,
+          canManageProjects: document.getElementById("canManageProjects").checked,
+          canViewAllReports: document.getElementById("canViewAllReports").checked
+        };
+
+        var apiCall = roleId ? google.script.run.apiUpdateRole(roleId, roleData) : google.script.run.apiCreateRole(roleData);
+
+        apiCall.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddRole")).close();
+            loadRolesTable();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar papel: " + error.message, "error");
+        });
+      }
+
+      function editRole(roleId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(role) {
+          hideLoading();
+          document.getElementById("roleId").value = role.ID;
+          document.getElementById("roleName").value = role.NomePapel;
+          document.getElementById("roleDescription").value = role.Descricao;
+          document.getElementById("canCreateUser").checked = role.canCreateUser;
+          document.getElementById("canManageProjects").checked = role.canManageProjects;
+          document.getElementById("canViewAllReports").checked = role.canViewAllReports;
+          M.updateTextFields();
+          var instance = M.Modal.getInstance(document.getElementById("modalAddRole"));
+          instance.open();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados do papel: " + error.message, "error");
+        }).apiGetRoleById(roleId); // Supondo uma API para obter papel por ID
+      }
+
+      function deleteRole(roleId) {
+        if (confirm("Tem certeza que deseja deletar este papel? Isso pode afetar usuários associados.")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadRolesTable();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar papel: " + error.message, "error");
+          }).apiDeleteRole(roleId); // Supondo uma API para deletar papel
+        }
+      }
+    </script>
+  </body>
+</html>

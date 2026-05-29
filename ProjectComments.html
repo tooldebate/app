@@ -1,0 +1,140 @@
+<!-- ProjectComments.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Comentários do Projeto</h3>
+          <div class="input-field">
+            <select id="commentProjectSelect">
+              <!-- Projetos serão carregados aqui -->
+            </select>
+            <label>Selecione um Projeto</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <div class="card-panel">
+            <h5 class="light-blue-text text-darken-4">Comentários</h5>
+            <div id="project-comments-list">
+              <!-- Comentários serão carregados aqui -->
+            </div>
+            <div class="input-field">
+              <textarea id="newProjectComment" class="materialize-textarea"></textarea>
+              <label for="newProjectComment">Adicionar Comentário</label>
+            </div>
+            <button class="btn waves-effect waves-light" onclick="addCommentToProject()">
+              Enviar Comentário
+              <i class="material-icons right">send</i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+        loadProjectsForCommentSelect();
+
+        document.getElementById("commentProjectSelect").addEventListener("change", function() {
+          var projectId = this.value;
+          if (projectId) {
+            loadProjectComments(projectId);
+          } else {
+            document.getElementById("project-comments-list").innerHTML = "<p>Selecione um projeto para ver os comentários.</p>";
+          }
+        });
+      });
+
+      function loadProjectsForCommentSelect() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(projects) {
+          hideLoading();
+          var select = document.getElementById("commentProjectSelect");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha um projeto</option>`;
+          projects.forEach(function(project) {
+            var option = document.createElement("option");
+            option.value = project.ID;
+            option.innerText = project.NomeProjeto;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar projetos para seleção: " + error.message, "error");
+        }).apiGetAllProjects();
+      }
+
+      function loadProjectComments(projectId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(comments) {
+          hideLoading();
+          var commentsList = document.getElementById("project-comments-list");
+          commentsList.innerHTML = "";
+          if (comments.length === 0) {
+            commentsList.innerHTML = "<p>Nenhum comentário para este projeto.</p>";
+            return;
+          }
+          comments.forEach(function(comment) {
+            var commentHtml = `
+              <div class="card-panel grey lighten-5 z-depth-1">
+                <div class="row valign-wrapper no-margin-bottom">
+                  <div class="col s1">
+                    <img src="https://www.gravatar.com/avatar/?d=mp" alt="" class="circle responsive-img"> <!-- notice the "circle" class -->
+                  </div>
+                  <div class="col s11">
+                    <span class="black-text">
+                      <b>${comment.UsuarioEmail}</b> em ${new Date(comment.DataComentario).toLocaleString()}<br>
+                      ${comment.Comentario}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `;
+            commentsList.innerHTML += commentHtml;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar comentários do projeto: " + error.message, "error");
+        }).apiGetProjectComments(projectId);
+      }
+
+      function addCommentToProject() {
+        var projectId = document.getElementById("commentProjectSelect").value;
+        var commentText = document.getElementById("newProjectComment").value;
+        if (!projectId) {
+          showToast("Por favor, selecione um projeto para adicionar o comentário.", "error");
+          return;
+        }
+        if (!commentText.trim()) {
+          showToast("O comentário não pode estar vazio.", "error");
+          return;
+        }
+        showLoading();
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            document.getElementById("newProjectComment").value = "";
+            loadProjectComments(projectId);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao adicionar comentário: " + error.message, "error");
+        }).apiAddProjectComment(projectId, commentText);
+      }
+    </script>
+  </body>
+</html>

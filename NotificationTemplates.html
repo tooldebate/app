@@ -1,0 +1,167 @@
+<!-- NotificationTemplates.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Gerenciar Templates de Notificação</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddNotificationTemplate"><i class="material-icons left">add</i>Adicionar Template</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Nome do Template</th>
+                  <th>Assunto</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="notification-templates-table-body">
+              <!-- Dados dos templates serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar/Editar Template de Notificação -->
+      <div id="modalAddNotificationTemplate" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar/Editar Template de Notificação</h4>
+          <form id="notificationTemplateForm">
+            <input type="hidden" id="templateId">
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="templateName" type="text" class="validate" required>
+                <label for="templateName">Nome do Template</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="templateSubject" type="text" class="validate" required>
+                <label for="templateSubject">Assunto</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="templateBody" class="materialize-textarea" required></textarea>
+                <label for="templateBody">Corpo do Template (HTML ou Texto)</label>
+                <span style="font-size:0.95em;color:#555;">
+                  Use variáveis dinâmicas entre chaves duplas, por exemplo: <br>
+                  <code>Olá {{nome}}, sua tarefa {{tarefa}} vence em {{prazo}}.</code>
+                </span>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveNotificationTemplate()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        loadNotificationTemplatesTable();
+      });
+
+      function loadNotificationTemplatesTable() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(templates) {
+          hideLoading();
+          var tableBody = document.getElementById("notification-templates-table-body");
+          tableBody.innerHTML = "";
+          templates.forEach(function(template) {
+            var row = `
+              <tr>
+                <td>${template.ID}</td>
+                <td>${template.NomeTemplate}</td>
+                <td>${template.Assunto}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light blue" onclick="editNotificationTemplate(${template.ID})"><i class="material-icons">edit</i></a>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteNotificationTemplate(${template.ID})"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar templates de notificação: " + error.message, "error");
+        }).apiGetAllNotificationTemplates(); // Supondo uma API para obter todos os templates
+      }
+
+      function saveNotificationTemplate() {
+        showLoading();
+        var templateId = document.getElementById("templateId").value;
+        var templateData = {
+          NomeTemplate: document.getElementById("templateName").value,
+          Assunto: document.getElementById("templateSubject").value,
+          Corpo: document.getElementById("templateBody").value
+        };
+
+        var apiCall = templateId ? google.script.run.apiUpdateNotificationTemplate(templateId, templateData) : google.script.run.apiCreateNotificationTemplate(templateData);
+
+        apiCall.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddNotificationTemplate")).close();
+            loadNotificationTemplatesTable();
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar template de notificação: " + error.message, "error");
+        });
+      }
+
+      function editNotificationTemplate(templateId) {
+        showLoading();
+        google.script.run.withSuccessHandler(function(template) {
+          hideLoading();
+          document.getElementById("templateId").value = template.ID;
+          document.getElementById("templateName").value = template.NomeTemplate;
+          document.getElementById("templateSubject").value = template.Assunto;
+          document.getElementById("templateBody").value = template.Corpo;
+          M.updateTextFields();
+          var instance = M.Modal.getInstance(document.getElementById("modalAddNotificationTemplate"));
+          instance.open();
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar dados do template: " + error.message, "error");
+        }).apiGetNotificationTemplateById(templateId); // Supondo uma API para obter template por ID
+      }
+
+      function deleteNotificationTemplate(templateId) {
+        if (confirm("Tem certeza que deseja deletar este template de notificação?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadNotificationTemplatesTable();
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar template de notificação: " + error.message, "error");
+          }).apiDeleteNotificationTemplate(templateId); // Supondo uma API para deletar template
+        }
+      }
+    </script>
+  </body>
+</html>

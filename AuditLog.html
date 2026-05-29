@@ -1,0 +1,74 @@
+<!-- AuditLog.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Log de Auditoria</h3>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Entidade</th>
+                  <th>Entidade ID</th>
+                  <th>Ação</th>
+                  <th>Usuário</th>
+                  <th>Timestamp</th>
+                  <th>Detalhes</th>
+              </tr>
+            </thead>
+            <tbody id="audit-log-table-body">
+              <!-- Logs de auditoria serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        loadAuditLog();
+      });
+
+      function loadAuditLog() {
+        showLoading();
+        google.script.run.withSuccessHandler(function(logs) {
+          hideLoading();
+          var tableBody = document.getElementById("audit-log-table-body");
+          tableBody.innerHTML = "";
+          if (logs.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="7">Nenhum log de auditoria encontrado.</td></tr>`;
+            return;
+          }
+          logs.forEach(function(log) {
+            var row = `
+              <tr>
+                <td>${log.ID}</td>
+                <td>${log.Entidade}</td>
+                <td>${log.EntidadeID}</td>
+                <td>${log.Acao}</td>
+                <td>${log.UsuarioEmail || "N/A"}</td>
+                <td>${new Date(log.Timestamp).toLocaleString()}</td>
+                <td>${log.Detalhes || ""}</td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar log de auditoria: " + error.message, "error");
+        }).apiGetAuditLog(); // Supondo uma API para obter logs de auditoria
+      }
+    </script>
+  </body>
+</html>

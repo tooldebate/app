@@ -1,0 +1,189 @@
+<!-- Evaluation.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h3 class="light-blue-text text-darken-4">Avaliações de Projeto</h3>
+          <a class="waves-effect waves-light btn modal-trigger" href="#modalAddEvaluation"><i class="material-icons left">add</i>Adicionar Avaliação</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12">
+          <table class="striped responsive-table">
+            <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Projeto</th>
+                  <th>Avaliador</th>
+                  <th>Data</th>
+                  <th>Aderência (%)</th>
+                  <th>Compreensão (%)</th>
+                  <th>Comentários</th>
+                  <th>Feedback Gemini</th>
+                  <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="evaluations-table-body">
+              <!-- Dados das avaliações serão carregados aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal para Adicionar Avaliação -->
+      <div id="modalAddEvaluation" class="modal">
+        <div class="modal-content">
+          <h4>Adicionar Avaliação de Projeto</h4>
+          <form id="evaluationForm">
+            <input type="hidden" id="evaluationId">
+            <div class="row">
+              <div class="input-field col s12">
+                <select id="evaluationProject" required>
+                  <!-- Projetos serão carregados aqui -->
+                </select>
+                <label>Projeto</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="adherenceScore" type="number" min="0" max="100" class="validate" required>
+                <label for="adherenceScore">Pontuação de Aderência (0-100)</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <input id="understandingScore" type="number" min="0" max="100" class="validate" required>
+                <label for="understandingScore">Pontuação de Compreensão (0-100)</label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="input-field col s12">
+                <textarea id="evaluationComments" class="materialize-textarea"></textarea>
+                <label for="evaluationComments">Comentários</label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat" onclick="saveEvaluation()">Salvar</a>
+          <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancelar</a>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var elems = document.querySelectorAll(".modal");
+        M.Modal.init(elems);
+        var selects = document.querySelectorAll("select");
+        M.FormSelect.init(selects);
+      });
+
+      var currentProjectIdForEvaluation = null;
+
+      function loadEvaluationsTable(projectId = null) {
+        currentProjectIdForEvaluation = projectId;
+        showLoading();
+        var apiCall = projectId ? google.script.run.apiGetProjectEvaluations(projectId) : google.script.run.apiGetProjectEvaluations("");
+
+        apiCall.withSuccessHandler(function(evaluations) {
+          hideLoading();
+          var tableBody = document.getElementById("evaluations-table-body");
+          tableBody.innerHTML = "";
+          evaluations.forEach(function(evaluation) {
+            var row = `
+              <tr>
+                <td>${evaluation.ID}</td>
+                <td>${evaluation.ProjetoNome || "N/A"}</td>
+                <td>${evaluation.UsuarioEmail || "N/A"}</td>
+                <td>${evaluation.DataAvaliacao ? new Date(evaluation.DataAvaliacao).toLocaleDateString() : "N/A"}</td>
+                <td>${evaluation.PontuacaoAderencia}</td>
+                <td>${evaluation.PontuacaoCompreensao}</td>
+                <td>${evaluation.Comentarios || ""}</td>
+                <td>${evaluation.GeminiFeedback || ""}</td>
+                <td>
+                  <a href="#!" class="btn-small waves-effect waves-light red" onclick="deleteEvaluation(${evaluation.ID})"><i class="material-icons">delete</i></a>
+                </td>
+              </tr>
+            `;
+            tableBody.innerHTML += row;
+          });
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao carregar avaliações: " + error.message, "error");
+        });
+      }
+
+      function loadProjectsForEvaluationSelect() {
+        google.script.run.withSuccessHandler(function(projects) {
+          var select = document.getElementById("evaluationProject");
+          select.innerHTML = 
+            `<option value="" disabled selected>Escolha o projeto</option>`;
+          projects.forEach(function(project) {
+            var option = document.createElement("option");
+            option.value = project.ID;
+            option.innerText = project.NomeProjeto;
+            select.appendChild(option);
+          });
+          M.FormSelect.init(select);
+          if (currentProjectIdForEvaluation) {
+            select.value = currentProjectIdForEvaluation;
+            M.FormSelect.init(select);
+          }
+        }).withFailureHandler(function(error) {
+          showToast("Erro ao carregar projetos para seleção: " + error.message, "error");
+        }).apiGetAllProjects();
+      }
+
+      function saveEvaluation() {
+        showLoading();
+        var projectId = document.getElementById("evaluationProject").value;
+        var adherenceScore = document.getElementById("adherenceScore").value;
+        var understandingScore = document.getElementById("understandingScore").value;
+        var comments = document.getElementById("evaluationComments").value;
+
+        google.script.run.withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showToast(result.message, "success");
+            M.Modal.getInstance(document.getElementById("modalAddEvaluation")).close();
+            loadEvaluationsTable(currentProjectIdForEvaluation);
+          } else {
+            showToast(result.message, "error");
+          }
+        }).withFailureHandler(function(error) {
+          hideLoading();
+          showToast("Erro ao salvar avaliação: " + error.message, "error");
+        }).apiAddProjectEvaluation(projectId, adherenceScore, understandingScore, comments);
+      }
+
+      function deleteEvaluation(evaluationId) {
+        if (confirm("Tem certeza que deseja deletar esta avaliação?")) {
+          showLoading();
+          google.script.run.withSuccessHandler(function(result) {
+            hideLoading();
+            if (result.success) {
+              showToast(result.message, "success");
+              loadEvaluationsTable(currentProjectIdForEvaluation);
+            } else {
+              showToast(result.message, "error");
+            }
+          }).withFailureHandler(function(error) {
+            hideLoading();
+            showToast("Erro ao deletar avaliação: " + error.message, "error");
+          }).apiDeleteProjectEvaluation(evaluationId); // Supondo que você tenha uma função apiDeleteProjectEvaluation
+        }
+      }
+
+      loadEvaluationsTable();
+      loadProjectsForEvaluationSelect();
+    </script>
+  </body>
+</html>

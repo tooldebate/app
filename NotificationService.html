@@ -1,0 +1,118 @@
+<!-- NotificationService.html -->
+<!-- Interface para visualização e teste do serviço de notificações -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Serviço de Notificações</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    label { display: block; margin-top: 1em; }
+    input, textarea, select { width: 100%; padding: 0.5em; margin-top: 0.2em; }
+    button { margin-top: 1em; padding: 0.7em 1.5em; }
+    .result { margin-top: 1em; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Teste de Envio de Notificação</h2>
+  <form id="notificationForm">
+    <label for="template">Template de Notificação (opcional):</label>
+    <select id="template" name="template">
+      <option value="">-- Envio Manual --</option>
+    </select>
+
+    <div id="manualFields">
+      <label for="email">E-mail do destinatário:</label>
+      <input type="email" id="email" name="email">
+
+      <label for="subject">Assunto:</label>
+      <input type="text" id="subject" name="subject">
+
+      <label for="body">Mensagem:</label>
+      <textarea id="body" name="body" rows="5"></textarea>
+    </div>
+
+    <div id="templateFields" style="display:none;"></div>
+
+    <button type="submit">Enviar Notificação</button>
+  </form>
+  <div class="result" id="result"></div>
+
+  <script>
+    // Carregar templates disponíveis
+    google.script.run.withSuccessHandler(function(templates) {
+      var select = document.getElementById('template');
+      templates.forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t.ID || t.id;
+        opt.textContent = t.NomeTemplate || t.nome || t.name;
+        select.appendChild(opt);
+      });
+    }).withFailureHandler(function(){}).NotificationTemplates_getAllTemplates();
+
+    document.getElementById('template').onchange = function() {
+      var templateId = this.value;
+      var manualFields = document.getElementById('manualFields');
+      var templateFields = document.getElementById('templateFields');
+      templateFields.innerHTML = '';
+      if (!templateId) {
+        manualFields.style.display = '';
+        templateFields.style.display = 'none';
+      } else {
+        manualFields.style.display = 'none';
+        templateFields.style.display = '';
+        // Buscar template e gerar campos dinâmicos
+        google.script.run.withSuccessHandler(function(template) {
+          // Detectar variáveis do template
+          var vars = [];
+          var regex = /{{\s*(\w+)\s*}}/g;
+          var all = (template.Assunto + ' ' + template.Corpo);
+          var m;
+          while ((m = regex.exec(all)) !== null) {
+            if (vars.indexOf(m[1]) === -1) vars.push(m[1]);
+          }
+          // Gerar campos
+          vars.forEach(function(v) {
+            var label = document.createElement('label');
+            label.textContent = v + ':';
+            var input = document.createElement('input');
+            input.type = v.toLowerCase().includes('email') ? 'email' : 'text';
+            input.id = 'var_' + v;
+            input.name = v;
+            templateFields.appendChild(label);
+            templateFields.appendChild(input);
+          });
+        }).withFailureHandler(function(){}).NotificationTemplates_getTemplateById(templateId);
+      }
+    };
+
+    document.getElementById('notificationForm').onsubmit = function(e) {
+      e.preventDefault();
+      var templateId = document.getElementById('template').value;
+      if (!templateId) {
+        // Envio manual
+        var email = document.getElementById('email').value;
+        var subject = document.getElementById('subject').value;
+        var body = document.getElementById('body').value;
+        google.script.run.withSuccessHandler(function(resp) {
+          document.getElementById('result').textContent = resp.message;
+        }).withFailureHandler(function(error) {
+          document.getElementById('result').textContent = 'Erro: ' + error.message;
+        }).sendEmailNotification(email, subject, body);
+      } else {
+        // Envio por template
+        var templateFields = document.getElementById('templateFields').querySelectorAll('input');
+        var params = {};
+        templateFields.forEach(function(input) {
+          params[input.name] = input.value;
+        });
+        google.script.run.withSuccessHandler(function(resp) {
+          document.getElementById('result').textContent = resp.message;
+        }).withFailureHandler(function(error) {
+          document.getElementById('result').textContent = 'Erro: ' + error.message;
+        }).sendNotificationFromTemplate(templateId, params);
+      }
+    };
+  </script>
+</body>
+</html>

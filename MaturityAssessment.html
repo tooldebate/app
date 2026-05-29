@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>Frontend Maturity Assessment</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2em; }
+      h1 { color: #1976d2; }
+      .result { margin-top: 2em; padding: 1em; border: 1px solid #ccc; border-radius: 8px; }
+      .score { font-size: 2em; color: #388e3c; }
+      .criteria { margin-top: 1em; }
+      .criteria li { margin-bottom: 0.5em; }
+      .pass { color: #388e3c; }
+      .fail { color: #d32f2f; }
+    </style>
+  </head>
+  <body>
+    <h1>Frontend Maturity Assessment</h1>
+    <form id="assessmentForm">
+      <label><input type="checkbox" name="accessibility"> Usa boas práticas de acessibilidade (ex: ARIA, contraste)?</label><br>
+      <label><input type="checkbox" name="responsive"> Interface responsiva (funciona em mobile e desktop)?</label><br>
+      <label><input type="checkbox" name="semantic"> Usa HTML semântico (header, nav, main, etc)?</label><br>
+      <label><input type="checkbox" name="performance"> Otimização de performance (lazy load, minificação)?</label><br>
+      <label><input type="checkbox" name="testing"> Possui testes automatizados de UI?</label><br>
+      <label><input type="checkbox" name="docs"> Documentação clara para desenvolvedores?</label><br>
+      <br>
+      <button type="button" onclick="assessMaturity()">Avaliar Maturidade</button>
+    </form>
+    <div id="result" class="result" style="display:none;"></div>
+    <script>
+      function assessMaturity() {
+        var form = document.getElementById('assessmentForm');
+        var data = {};
+        Array.from(form.elements).forEach(function(el) {
+          if (el.type === 'checkbox') data[el.name] = el.checked;
+        });
+        google.script.run.withSuccessHandler(showResult).assessFrontendMaturity(data);
+      }
+      function showResult(result) {
+        var div = document.getElementById('result');
+        div.style.display = 'block';
+        div.innerHTML = '<div class="score">Pontuação: ' + result.score + '/6</div>' +
+          '<ul class="criteria">' +
+          result.details.map(function(item) {
+            return '<li class="' + (item.pass ? 'pass' : 'fail') + '">' + item.label + '</li>';
+          }).join('') +
+          '</ul>';
+      }
+    </script>
+  </body>
+</html>
