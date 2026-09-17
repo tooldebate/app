@@ -1,0 +1,714 @@
+<script>
+(function() {
+  'use strict';
+
+  var synthesis = window.speechSynthesis;
+  var state = {
+    conto: null,
+    tentativaId: '',
+    perguntas: [],
+    chunks: [],
+    chunkAtual: 0,
+    tokenFala: 0,
+    pausado: false,
+    escutaConcluida: false,
+    perguntasVisiveis: false,
+    inicioLeitura: 0,
+    carregando: false,
+    enviando: false,
+    contoRequestSerial: 0,
+    resultadoRequestSerial: 0,
+    avisoTimer: null,
+    perfilAutenticado: null
+  };
+  var dom = {};
+  var voices = [];
+
+  function hasScriptRunner() {
+    return Boolean(window.google && window.google.script && window.google.script.run);
+  }
+
+  function focusSafely(element) {
+    if (!element) return;
+    try { element.focus(); } catch (ignored) {}
+  }
+
+  document.addEventListener('DOMContentLoaded', iniciarLeituraAcervo);
+
+  function iniciarLeituraAcervo() {
+    cacheDom();
+    ligarEventos();
+    carregarPerfilLocal();
+    carregarPerfilAutenticado();
+    carregarAnaliseEtariaContos();
+    popularVozes();
+    if (synthesis && typeof synthesis.onvoiceschanged !== 'undefined') {
+      synthesis.onvoiceschanged = popularVozes;
+    }
+    alternarModulo('leitura');
+    atualizarProgresso({
+      pontos: 0,
+      leiturasConcluidas: 0,
+      sequenciaAtual: 0,
+      nivel: 'Semente de histórias',
+      progressoNivel: 0,
+      proximoNivel: 'Explorador de contos',
+      pontosProximoNivel: 50
+    });
+  }
+
+  function cacheDom() {
+    [
+      'abaLeitura', 'abaCriacao', 'moduloLeitura', 'moduloCriacao',
+      'progressoCriacao', 'acervoIdentificacao', 'acervoIdade',
+      'acervoSortear', 'acervoTitulo', 'acervoMeta', 'acervoTexto',
+      'acervoStatus', 'acervoStatusTexto', 'acervoProgressoFala',
+      'acervoPlay', 'acervoPausar', 'acervoStop', 'acervoReiniciar',
+      'acervoConcluirSemAudio', 'acervoVoice', 'acervoRate',
+      'acervoRateValor', 'acervoProgresso', 'acervoPontos', 'acervoLeituras',
+      'acervoSequencia', 'acervoNivel', 'acervoNivelBarra',
+      'acervoNivelProgresso',
+      'acervoMetaNivel', 'acervoPerguntas', 'acervoPerguntasLista',
+      'acervoEnviarRespostas', 'acervoResultado', 'acervoResultadoPontos',
+      'acervoResultadoMensagem', 'acervoConquistas', 'acervoOutroConto',
+      'acervoAviso', 'acervoRecomendacao',
+      'acervoParabens', 'acervoParabensMensagem', 'acervoParabensConquistas',
+      'acervoAnaliseEtariaTexto'
+    ].forEach(function(id) {
+      dom[id] = document.getElementById(id);
+    });
+  }
+
+  function ligarEventos() {
+    dom.abaLeitura.addEventListener('click', function() { alternarModulo('leitura'); });
+    dom.abaCriacao.addEventListener('click', function() { alternarModulo('criacao'); });
+    [dom.abaLeitura, dom.abaCriacao].forEach(function(aba) {
+      aba.addEventListener('keydown', navegarAbas);
+    });
+    dom.acervoSortear.addEventListener('click', sortearConto);
+    dom.acervoPlay.addEventListener('click', iniciarOuRetomarLeitura);
+    dom.acervoPausar.addEventListener('click', pausarOuRetomarLeitura);
+    dom.acervoStop.addEventListener('click', pararLeitura);
+    dom.acervoReiniciar.addEventListener('click', reiniciarLeitura);
+    dom.acervoConcluirSemAudio.addEventListener('click', function() {
+      revelarPerguntas(false);
+    });
+    dom.acervoRate.addEventListener('input', function() {
+      dom.acervoRateValor.value = Number(dom.acervoRate.value).toFixed(1) + 'x';
+      dom.acervoRateValor.textContent = dom.acervoRateValor.value;
+    });
+    dom.acervoEnviarRespostas.addEventListener('click', enviarRespostas);
+    dom.acervoOutroConto.addEventListener('click', sortearConto);
+    dom.acervoIdentificacao.addEventListener('change', salvarPerfilLocal);
+    dom.acervoIdade.addEventListener('change', salvarPerfilLocal);
+  }
+
+  function navegarAbas(evento) {
+    var abas = [dom.abaLeitura, dom.abaCriacao];
+    var indiceAtual = abas.indexOf(evento.currentTarget);
+    var proximoIndice = indiceAtual;
+    if (evento.key === 'ArrowRight') proximoIndice = (indiceAtual + 1) % abas.length;
+    else if (evento.key === 'ArrowLeft') proximoIndice = (indiceAtual - 1 + abas.length) % abas.length;
+    else if (evento.key === 'Home') proximoIndice = 0;
+    else if (evento.key === 'End') proximoIndice = abas.length - 1;
+    else return;
+
+    evento.preventDefault();
+    var proximaAba = abas[proximoIndice];
+    alternarModulo(proximaAba === dom.abaLeitura ? 'leitura' : 'criacao');
+    proximaAba.focus();
+  }
+
+  function alternarModulo(modulo) {
+    var leituraAtiva = modulo === 'leitura';
+    dom.moduloLeitura.hidden = !leituraAtiva;
+    dom.moduloCriacao.hidden = leituraAtiva;
+    dom.moduloCriacao.classList.toggle('oculto', leituraAtiva);
+    dom.abaLeitura.setAttribute('aria-selected', leituraAtiva ? 'true' : 'false');
+    dom.abaCriacao.setAttribute('aria-selected', leituraAtiva ? 'false' : 'true');
+    dom.abaLeitura.tabIndex = leituraAtiva ? 0 : -1;
+    dom.abaCriacao.tabIndex = leituraAtiva ? -1 : 0;
+    if (dom.progressoCriacao) {
+      dom.progressoCriacao.classList.toggle('oculto', leituraAtiva);
+    }
+    if (!leituraAtiva) cancelarSintese();
+    window.scrollTo(0, 0);
+  }
+
+  function sortearConto() {
+    if (state.carregando) return;
+    if (!hasScriptRunner()) {
+      definirStatus('erro', 'O acervo só pode ser carregado no Web App publicado.');
+      mostrarAviso('Servidor indisponível. Tente novamente quando a página estiver publicada.', 'erro');
+      return;
+    }
+    // Identificação é opcional: sem nome/apelido/código, o leitor entra como
+    // visitante e recebe automaticamente o conto mais próximo do acervo.
+    var identificacao = dom.acervoIdentificacao.value.trim();
+    var requestId = ++state.contoRequestSerial;
+
+    salvarPerfilLocal();
+    cancelarSintese();
+    setCarregando(true);
+    esconderEtapas();
+    definirStatus('carregando', 'Buscando o próximo conto mais próximo do seu gosto...');
+
+    window.google.script.run
+      .withSuccessHandler(function(resposta) {
+        if (requestId !== state.contoRequestSerial) return;
+        setCarregando(false);
+        if (!resposta || !resposta.ok || !resposta.conto || typeof resposta.conto !== 'object') {
+          mostrarAviso('Não foi possível abrir o conto.', 'erro');
+          return;
+        }
+        if (resposta.acervoConcluido) {
+          mostrarParabens(resposta);
+          return;
+        }
+        renderizarConto(resposta);
+      })
+      .withFailureHandler(function() {
+        if (requestId !== state.contoRequestSerial) return;
+        setCarregando(false);
+        definirStatus('erro', 'Não foi possível carregar o acervo.');
+        mostrarAviso('Não foi possível carregar o acervo. Tente novamente.', 'erro');
+      })
+      .apiObterContoAleatorio({
+        token: window.__CODEX_TOK__ || '',
+        identificacao: identificacao,
+        idade: dom.acervoIdade.value,
+        excluirArquivoId: state.conto ? state.conto.arquivoId : '',
+        preferirAutenticado: true
+      });
+  }
+
+  function renderizarConto(resposta) {
+    if (!resposta || !resposta.conto || typeof resposta.conto !== 'object') {
+      mostrarAviso('O conto recebido está incompleto e não pode ser exibido.', 'erro');
+      return;
+    }
+    state.conto = resposta.conto;
+    state.tentativaId = resposta.tentativaId;
+    state.perguntas = resposta.perguntas || [];
+    state.chunks = dividirEmTrechos(resposta.conto.texto);
+    state.chunkAtual = 0;
+    state.escutaConcluida = false;
+    state.perguntasVisiveis = false;
+    state.inicioLeitura = 0;
+
+    dom.acervoTitulo.textContent = resposta.conto.titulo;
+    var caracteres = Number(resposta.conto.caracteres);
+    dom.acervoMeta.textContent =
+      (isFinite(caracteres) ? caracteres : 0).toLocaleString('pt-BR') + ' caracteres · ' +
+      String(resposta.conto.acervoDisponivel == null ? '—' : resposta.conto.acervoDisponivel) + ' contos no acervo · ' +
+      Number(resposta.conto.acervoNaoLido || 0) + ' ainda não lidos por você';
+    renderizarRecomendacao(resposta.recomendacao);
+    renderizarTrechos();
+    renderizarPerguntas();
+    atualizarProgresso(resposta.progresso);
+    atualizarProgressoFala();
+    habilitarPlayer(true);
+    definirStatus('pronto', 'Conto pronto. Aperte ouvir.');
+    dom.acervoTexto.focus();
+  }
+
+  function renderizarTrechos() {
+    dom.acervoTexto.textContent = '';
+    dom.acervoTexto.classList.remove('acervo-texto--vazio');
+    state.chunks.forEach(function(trecho, indice) {
+      var span = document.createElement('span');
+      span.className = 'acervo-trecho';
+      span.dataset.indice = indice;
+      span.textContent = trecho;
+      dom.acervoTexto.appendChild(span);
+    });
+  }
+
+  function dividirEmTrechos(texto) {
+    var partes = String(texto || '').match(/[^.!?\n]+(?:[.!?]+["'”’)]*|\n+|$)\s*/g) || [];
+    partes = partes.map(function(parte) { return parte; }).filter(function(parte) {
+      return parte.trim().length > 0;
+    });
+    if (!partes.length && texto) partes = [texto];
+    return partes;
+  }
+
+  function iniciarOuRetomarLeitura() {
+    if (!state.conto || !synthesis) {
+      mostrarAviso('O recurso de voz não está disponível neste navegador.', 'erro');
+      return;
+    }
+    if (state.pausado) {
+      synthesis.resume();
+      state.pausado = false;
+      definirStatus('ouvindo', 'Leitura retomada.');
+      atualizarBotaoPausa();
+      return;
+    }
+    if (synthesis.speaking) return;
+    if (state.chunkAtual >= state.chunks.length) state.chunkAtual = 0;
+    if (!state.inicioLeitura) state.inicioLeitura = Date.now();
+    var token = ++state.tokenFala;
+    falarProximoTrecho(token);
+  }
+
+  function falarProximoTrecho(token) {
+    if (token !== state.tokenFala) return;
+    if (state.chunkAtual >= state.chunks.length) {
+      concluirEscuta();
+      return;
+    }
+
+    var texto = state.chunks[state.chunkAtual].trim();
+    var fala = new SpeechSynthesisUtterance(texto);
+    var voz = obterVozSelecionada();
+    if (voz) fala.voice = voz;
+    fala.lang = voz ? voz.lang : 'pt-BR';
+    fala.rate = Number(dom.acervoRate.value) || 1;
+    fala.pitch = 1;
+
+    fala.onstart = function() {
+      if (token !== state.tokenFala) return;
+      destacarTrecho(state.chunkAtual);
+      definirStatus('ouvindo', 'Acompanhando o conto...');
+      atualizarProgressoFala();
+    };
+    fala.onend = function() {
+      if (token !== state.tokenFala) return;
+      state.chunkAtual++;
+      atualizarProgressoFala();
+      falarProximoTrecho(token);
+    };
+    fala.onerror = function(evento) {
+      if (token !== state.tokenFala) return;
+      if (evento && (evento.error === 'canceled' || evento.error === 'interrupted')) return;
+      definirStatus('erro', 'A voz encontrou uma dificuldade neste trecho.');
+      state.chunkAtual++;
+      falarProximoTrecho(token);
+    };
+    synthesis.speak(fala);
+  }
+
+  function pausarOuRetomarLeitura() {
+    if (!synthesis || (!synthesis.speaking && !state.pausado)) return;
+    if (state.pausado) {
+      synthesis.resume();
+      state.pausado = false;
+      definirStatus('ouvindo', 'Leitura retomada.');
+    } else {
+      synthesis.pause();
+      state.pausado = true;
+      definirStatus('pausado', 'Leitura pausada.');
+    }
+    atualizarBotaoPausa();
+  }
+
+  function pararLeitura() {
+    cancelarSintese();
+    state.chunkAtual = 0;
+    state.inicioLeitura = 0;
+    limparDestaque();
+    atualizarProgressoFala();
+    definirStatus('pausado', 'Leitura interrompida.');
+  }
+
+  function reiniciarLeitura() {
+    if (!state.conto) return;
+    cancelarSintese();
+    state.chunkAtual = 0;
+    state.inicioLeitura = Date.now();
+    atualizarProgressoFala();
+    iniciarOuRetomarLeitura();
+  }
+
+  function cancelarSintese() {
+    state.tokenFala++;
+    state.pausado = false;
+    if (synthesis) synthesis.cancel();
+    atualizarBotaoPausa();
+  }
+
+  function concluirEscuta() {
+    cancelarSintese();
+    state.chunkAtual = state.chunks.length;
+    state.escutaConcluida = true;
+    destacarTrecho(-1);
+    atualizarProgressoFala();
+    definirStatus('concluido', 'Leitura concluída. Desafio liberado.');
+    revelarPerguntas(true);
+  }
+
+  function revelarPerguntas(pelaEscuta) {
+    if (!state.conto || state.perguntasVisiveis) return;
+    state.perguntasVisiveis = true;
+    if (pelaEscuta) state.escutaConcluida = true;
+    dom.acervoPerguntas.hidden = false;
+    dom.acervoPerguntas.scrollIntoView({ behavior: reduzirMovimento() ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  function renderizarPerguntas() {
+    dom.acervoPerguntasLista.textContent = '';
+    state.perguntas.forEach(function(pergunta, indicePergunta) {
+      var fieldset = document.createElement('fieldset');
+      fieldset.className = 'acervo-pergunta';
+      fieldset.dataset.indice = indicePergunta;
+
+      var legend = document.createElement('legend');
+      legend.textContent = (indicePergunta + 1) + '. ' + pergunta.pergunta;
+      fieldset.appendChild(legend);
+
+      pergunta.alternativas.forEach(function(alternativa, indiceAlternativa) {
+        var label = document.createElement('label');
+        label.className = 'acervo-alternativa';
+        label.dataset.alternativa = indiceAlternativa;
+
+        var input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'acervo-pergunta-' + indicePergunta;
+        input.value = indiceAlternativa;
+
+        var texto = document.createElement('span');
+        texto.textContent = alternativa;
+        label.appendChild(input);
+        label.appendChild(texto);
+        fieldset.appendChild(label);
+      });
+      dom.acervoPerguntasLista.appendChild(fieldset);
+    });
+    dom.acervoPerguntas.hidden = true;
+  }
+
+  function enviarRespostas() {
+    if (state.enviando) return;
+    if (!hasScriptRunner()) {
+      mostrarAviso('Servidor indisponível. As respostas não foram enviadas.', 'erro');
+      return;
+    }
+    var respostas = [];
+    for (var i = 0; i < state.perguntas.length; i++) {
+      var selecionada = document.querySelector('input[name="acervo-pergunta-' + i + '"]:checked');
+      if (!selecionada) {
+        mostrarAviso('Responda as duas perguntas para ver seus pontos.', 'erro');
+        return;
+      }
+      respostas.push(Number(selecionada.value));
+    }
+
+    state.enviando = true;
+    dom.acervoEnviarRespostas.disabled = true;
+    dom.acervoEnviarRespostas.textContent = 'Conferindo pistas...';
+    var voz = obterVozSelecionada();
+    var requestId = ++state.resultadoRequestSerial;
+
+    window.google.script.run
+      .withSuccessHandler(function(resultado) {
+        if (requestId !== state.resultadoRequestSerial) return;
+        state.enviando = false;
+        dom.acervoEnviarRespostas.disabled = false;
+        dom.acervoEnviarRespostas.textContent = 'Concluir desafio';
+        renderizarResultado(resultado);
+      })
+      .withFailureHandler(function() {
+        if (requestId !== state.resultadoRequestSerial) return;
+        state.enviando = false;
+        dom.acervoEnviarRespostas.disabled = false;
+        dom.acervoEnviarRespostas.textContent = 'Concluir desafio';
+        mostrarAviso('Não foi possível registrar suas respostas. Tente novamente.', 'erro');
+      })
+      .apiRegistrarLeituraAcervo({
+        token: window.__CODEX_TOK__ || '',
+        tentativaId: state.tentativaId,
+        respostas: respostas,
+        escutaConcluida: state.escutaConcluida,
+        duracaoSegundos: state.inicioLeitura
+          ? Math.round((Date.now() - state.inicioLeitura) / 1000)
+          : 0,
+        voz: voz ? voz.name : '',
+        velocidade: Number(dom.acervoRate.value)
+      });
+  }
+
+  function renderizarResultado(resultado) {
+    if (!resultado || !resultado.ok || !Array.isArray(resultado.feedback)) {
+      mostrarAviso('Não foi possível computar os pontos.', 'erro');
+      return;
+    }
+    resultado.feedback.forEach(function(feedback, indicePergunta) {
+      if (!feedback || typeof feedback !== 'object') return;
+      var fieldset = dom.acervoPerguntasLista.querySelector(
+        '.acervo-pergunta[data-indice="' + indicePergunta + '"]'
+      );
+      if (!fieldset) return;
+      fieldset.querySelectorAll('input').forEach(function(input) { input.disabled = true; });
+      var escolhida = fieldset.querySelector(
+        '.acervo-alternativa[data-alternativa="' + feedback.resposta + '"]'
+      );
+      var correta = fieldset.querySelector(
+        '.acervo-alternativa[data-alternativa="' + feedback.respostaCorreta + '"]'
+      );
+      if (correta) correta.classList.add('is-correct');
+      if (escolhida && !feedback.correta) escolhida.classList.add('is-wrong');
+
+      var explicacao = document.createElement('p');
+      explicacao.className = 'acervo-explicacao';
+      explicacao.textContent = feedback.explicacao;
+      fieldset.appendChild(explicacao);
+    });
+
+    dom.acervoEnviarRespostas.hidden = true;
+    dom.acervoResultadoPontos.textContent = '+' + Number(resultado.pontosGanhos || 0);
+    dom.acervoResultadoMensagem.textContent =
+      String(resultado.acertos == null ? 0 : resultado.acertos) + ' de ' +
+      String(resultado.totalPerguntas == null ? state.perguntas.length : resultado.totalPerguntas) +
+      ' respostas certas. ' + String(resultado.mensagem || 'Desafio concluído.');
+    var resultadoProgresso = resultado.progresso || {};
+    dom.acervoConquistas.textContent = '';
+    (resultadoProgresso.novasConquistas || []).forEach(function(conquista) {
+      var badge = document.createElement('span');
+      badge.className = 'acervo-conquista';
+      badge.textContent = conquista;
+      dom.acervoConquistas.appendChild(badge);
+    });
+    atualizarProgresso(resultadoProgresso);
+    dom.acervoResultado.hidden = false;
+    dom.acervoResultado.scrollIntoView({ behavior: reduzirMovimento() ? 'auto' : 'smooth', block: 'center' });
+  }
+
+  function atualizarProgresso(progresso) {
+    progresso = progresso || {};
+    dom.acervoPontos.textContent = Number(progresso.pontos || 0).toLocaleString('pt-BR');
+    dom.acervoLeituras.textContent = Number(progresso.leiturasConcluidas || 0);
+    dom.acervoSequencia.textContent = Number(progresso.sequenciaAtual || 0);
+    dom.acervoNivel.textContent = progresso.nivel || 'Semente de histórias';
+    var nivelPercentual = Math.max(0, Math.min(100, Number(progresso.progressoNivel || 0)));
+    dom.acervoNivelBarra.style.width = nivelPercentual + '%';
+    if (dom.acervoNivelProgresso) dom.acervoNivelProgresso.setAttribute('aria-valuenow', String(nivelPercentual));
+    dom.acervoMetaNivel.textContent = progresso.proximoNivel
+      ? 'Próximo: ' + progresso.proximoNivel + ' em ' + progresso.pontosProximoNivel + ' pontos'
+      : 'Nível máximo alcançado';
+  }
+
+  function carregarPerfilAutenticado() {
+    if (!hasScriptRunner()) return;
+    window.google.script.run
+      .withSuccessHandler(function(perfil) {
+        if (!perfil || !perfil.autenticado) return;
+        state.perfilAutenticado = perfil;
+        dom.acervoIdentificacao.value = perfil.identificacao || '';
+        dom.acervoIdade.value = perfil.idade || '';
+        dom.acervoIdentificacao.readOnly = true;
+        dom.acervoIdade.readOnly = true;
+        dom.acervoIdentificacao.setAttribute('aria-readonly', 'true');
+        dom.acervoIdade.setAttribute('aria-readonly', 'true');
+        dom.acervoSortear.textContent = 'Sugerir próximo conto';
+        if (perfil.progresso) atualizarProgresso(perfil.progresso);
+        if (dom.acervoRecomendacao) {
+          dom.acervoRecomendacao.textContent = perfil.perfilQuestionario && perfil.perfilQuestionario.temPerfil
+            ? 'Perfil carregado: os contos não lidos serão ordenados pelo seu questionário.'
+            : 'Perfil carregado. Depois de responder ao questionário, a ordem ficará mais pessoal.';
+        }
+      })
+      .withFailureHandler(function() {})
+      .apiObterPerfilLeitorAutenticado(window.__CODEX_TOK__ || '');
+  }
+
+  function carregarAnaliseEtariaContos() {
+    if (!dom.acervoAnaliseEtariaTexto) return;
+    if (!hasScriptRunner()) {
+      dom.acervoAnaliseEtariaTexto.textContent =
+        'A análise por faixa etária será gerada automaticamente quando esta página estiver aberta no Web App publicado.';
+      return;
+    }
+    dom.acervoAnaliseEtariaTexto.textContent =
+      'Gerando automaticamente a leitura inicial das faixas etárias dos autores dos contos...';
+    window.google.script.run
+      .withSuccessHandler(function(resposta) {
+        if (!resposta || !resposta.ok || !resposta.texto) {
+          dom.acervoAnaliseEtariaTexto.textContent =
+            'Ainda não foi possível montar a análise etária do acervo.';
+          return;
+        }
+        dom.acervoAnaliseEtariaTexto.textContent = resposta.texto;
+      })
+      .withFailureHandler(function() {
+        dom.acervoAnaliseEtariaTexto.textContent =
+          'A análise etária automática não pôde ser carregada agora. Tente atualizar a página em alguns instantes.';
+      })
+      .apiObterAnaliseEtariaContos();
+  }
+
+  function renderizarRecomendacao(recomendacao) {
+    if (!dom.acervoRecomendacao || !recomendacao) return;
+    var base = recomendacao.modo === 'nao_lido_por_afinidade'
+      ? 'Próximo não lido'
+      : 'Você já explorou todos os não lidos; sugerindo uma releitura';
+    dom.acervoRecomendacao.textContent =
+      base + ': ' + recomendacao.rotulo + ' (' +
+      Number(recomendacao.afinidade || 0) + '% de afinidade).';
+  }
+
+  function popularVozes() {
+    if (!synthesis) return;
+    voices = synthesis.getVoices().slice().sort(function(a, b) {
+      var aPt = /^pt/i.test(a.lang) ? 0 : 1;
+      var bPt = /^pt/i.test(b.lang) ? 0 : 1;
+      return aPt - bPt || a.name.localeCompare(b.name);
+    });
+    var selecionadaAtual = dom.acervoVoice.value;
+    dom.acervoVoice.textContent = '';
+    voices.forEach(function(voz, indice) {
+      var option = document.createElement('option');
+      option.value = String(indice);
+      option.textContent = voz.name + ' (' + voz.lang + ')';
+      if (selecionadaAtual && selecionadaAtual === option.value) option.selected = true;
+      dom.acervoVoice.appendChild(option);
+    });
+    var primeiraPt = voices.findIndex(function(voz) { return /^pt-BR/i.test(voz.lang); });
+    if (!selecionadaAtual && primeiraPt >= 0) dom.acervoVoice.value = String(primeiraPt);
+  }
+
+  function obterVozSelecionada() {
+    var indice = Number(dom.acervoVoice.value);
+    return voices[indice] || voices[0] || null;
+  }
+
+  function destacarTrecho(indice) {
+    limparDestaque();
+    if (indice < 0) return;
+    var trecho = dom.acervoTexto.querySelector('.acervo-trecho[data-indice="' + indice + '"]');
+    if (!trecho) return;
+    trecho.classList.add('is-active');
+    trecho.scrollIntoView({ behavior: reduzirMovimento() ? 'auto' : 'smooth', block: 'center' });
+  }
+
+  function limparDestaque() {
+    dom.acervoTexto.querySelectorAll('.acervo-trecho.is-active').forEach(function(trecho) {
+      trecho.classList.remove('is-active');
+    });
+  }
+
+  function atualizarProgressoFala() {
+    var total = Math.max(1, state.chunks.length);
+    var percentual = state.chunks.length ? Math.round((state.chunkAtual / total) * 100) : 0;
+    dom.acervoProgressoFala.style.width = Math.min(100, percentual) + '%';
+    if (dom.acervoProgresso) dom.acervoProgresso.setAttribute('aria-valuenow', String(Math.min(100, percentual)));
+  }
+
+  function habilitarPlayer(habilitado) {
+    [
+      dom.acervoPlay, dom.acervoPausar, dom.acervoStop,
+      dom.acervoReiniciar, dom.acervoConcluirSemAudio
+    ].forEach(function(botao) { botao.disabled = !habilitado; });
+  }
+
+  function esconderEtapas() {
+    dom.acervoPerguntas.hidden = true;
+    dom.acervoResultado.hidden = true;
+    if (dom.acervoParabens) dom.acervoParabens.hidden = true;
+    dom.acervoEnviarRespostas.hidden = false;
+  }
+
+  // Tela de parabéns: o aluno já leu todos os contos .txt do acervo.
+  function mostrarParabens(resposta) {
+    cancelarSintese();
+    esconderEtapas();
+    habilitarPlayer(false);
+    state.conto = null;
+
+    var progresso = resposta.progresso || {};
+    atualizarProgresso(progresso);
+    var lidos = Number(progresso.leiturasConcluidas || 0);
+    if (dom.acervoParabensMensagem) {
+      dom.acervoParabensMensagem.textContent = lidos
+        ? 'Você ouviu e compreendeu os ' + lidos + ' contos da turma. Que leitor(a) incrível!'
+        : 'Você ouviu e compreendeu todos os contos da turma. Que leitor(a) incrível!';
+    }
+    if (dom.acervoParabensConquistas) {
+      dom.acervoParabensConquistas.textContent = '';
+      (progresso.conquistas || []).forEach(function(conquista) {
+        var badge = document.createElement('span');
+        badge.className = 'acervo-conquista';
+        badge.textContent = conquista;
+        dom.acervoParabensConquistas.appendChild(badge);
+      });
+    }
+
+    dom.acervoTitulo.textContent = 'Acervo concluído 🏆';
+    dom.acervoMeta.textContent = Number(resposta.conto && resposta.conto.acervoDisponivel || 0) +
+      ' contos no acervo · 0 ainda não lidos por você';
+    dom.acervoTexto.className = 'acervo-texto acervo-texto--vazio';
+    dom.acervoTexto.textContent = 'Você leu todos os contos disponíveis. Parabéns!';
+    definirStatus('concluido', 'Você leu todo o acervo!');
+    if (dom.acervoRecomendacao) {
+      dom.acervoRecomendacao.textContent = 'Não há mais contos não lidos para você no momento.';
+    }
+
+    dom.acervoParabens.hidden = false;
+    dom.acervoParabens.scrollIntoView({
+      behavior: reduzirMovimento() ? 'auto' : 'smooth', block: 'center'
+    });
+  }
+
+  function setCarregando(carregando) {
+    state.carregando = carregando;
+    dom.acervoSortear.disabled = carregando;
+    dom.acervoSortear.textContent = carregando ? 'Sugerindo...' : 'Sugerir conto';
+    if (carregando) {
+      dom.acervoTitulo.textContent = 'Abrindo o acervo...';
+      dom.acervoMeta.textContent = 'Isso pode levar alguns segundos na primeira vez.';
+      dom.acervoTexto.className = 'acervo-texto acervo-texto--vazio';
+      dom.acervoTexto.textContent = 'Ordenando os fanzines ainda não lidos e preparando o desafio de leitura.';
+      habilitarPlayer(false);
+    }
+  }
+
+  function definirStatus(estado, texto) {
+    dom.acervoStatus.dataset.estado = estado;
+    dom.acervoStatusTexto.textContent = texto;
+  }
+
+  function atualizarBotaoPausa() {
+    if (!dom.acervoPausar) return;
+    var texto = dom.acervoPausar.querySelector('span');
+    if (texto) texto.textContent = state.pausado ? 'Retomar' : 'Pausar';
+  }
+
+  function salvarPerfilLocal() {
+    try {
+      localStorage.setItem('tooldebate.leitor.identificacao', dom.acervoIdentificacao.value.trim());
+      localStorage.setItem('tooldebate.leitor.idade', dom.acervoIdade.value);
+    } catch (erro) {}
+  }
+
+  function carregarPerfilLocal() {
+    try {
+      dom.acervoIdentificacao.value =
+        localStorage.getItem('tooldebate.leitor.identificacao') || '';
+      dom.acervoIdade.value = localStorage.getItem('tooldebate.leitor.idade') || '';
+    } catch (erro) {}
+  }
+
+  function mostrarAviso(mensagem, tipo) {
+    dom.acervoAviso.textContent = mensagem;
+    dom.acervoAviso.dataset.tipo = tipo || 'info';
+    dom.acervoAviso.hidden = false;
+    clearTimeout(state.avisoTimer);
+    state.avisoTimer = setTimeout(function() {
+      dom.acervoAviso.hidden = true;
+    }, 5200);
+  }
+
+  function mensagemErro(erro) {
+    return 'Não foi possível concluir a operação. Tente novamente.';
+  }
+
+  function reduzirMovimento() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  window.LeituraAcervo = {
+    alternarModulo: alternarModulo,
+    sortearConto: sortearConto
+  };
+})();
+</script>

@@ -1,286 +1,1725 @@
-<!-- Index.html -->
 <!DOCTYPE html>
-<html>
-  <head>
-    <base target="_top">
-    <title>Sistema de Gestão Agentica</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <style>
-      body { display: flex; min-height: 100vh; flex-direction: column; }
-      main { flex: 1 0 auto; }
-      .container { margin-top: 20px; }
-      .card-panel { padding: 20px; margin-bottom: 20px; }
-      .btn-floating { margin-right: 10px; }
-      #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 1000; justify-content: center; align-items: center; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <nav class="light-blue darken-4">
-        <div class="nav-wrapper container">
-          <a href="#" class="brand-logo">Sistema Agentico</a>
-          <ul id="nav-mobile" class="right hide-on-med-and-down">
-            <li><a href="#" onclick="google.script.run.apiLogout().then(loadLoginPage)">Sair</a></li>
-          </ul>
-        </div>
-      </nav>
-    </header>
+<html lang="pt-BR">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <?!= include('SharedTokens'); ?>
+<?!= include('Estilos'); ?>
+  <?!= include('LeituraAcervoEstilos'); ?>
+  <style id="codex-mobile-a11y">
+  /* Mobile-first accessibility baseline for Chrome and Google-style readability. */
+  :where(html) {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
 
-    <main>
-      <div class="container" id="app-content">
-        <!-- Conteúdo principal da aplicação será carregado aqui -->
-      </div>
-    </main>
+  :where(body) {
+    min-width: 0;
+    overflow-x: hidden;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
 
-    <footer class="page-footer light-blue darken-4">
-      <div class="footer-copyright">
-        <div class="container">
-          © 2026 Manus AI
-          <a class="grey-text text-lighten-4 right" href="#!">Mais Informações</a>
-        </div>
-      </div>
-    </footer>
+  :where(p, li, dd, dt, blockquote, figcaption, label, td, th, input, select, textarea, button) {
+    line-height: 1.5;
+  }
 
-    <div id="loading-overlay">
-      <div class="preloader-wrapper active">
-        <div class="spinner-layer spinner-blue-only">
-          <div class="circle-clipper left">
-            <div class="circle"></div>
-          </div><div class="gap-patch">
-            <div class="circle"></div>
-          </div><div class="circle-clipper right">
-            <div class="circle"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+  :where(p, li, dd, dt, blockquote, figcaption) {
+    max-width: 72ch;
+  }
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-    <script>
-      // JavaScript global para a aplicação
-      document.addEventListener("DOMContentLoaded", function() {
-        M.AutoInit();
-        loadApp();
-      });
+  :where(button, [role="button"], input, select, textarea, a) {
+    touch-action: manipulation;
+  }
 
-      function showLoading() {
-        document.getElementById("loading-overlay").style.display = "flex";
-      }
+  :where(button, [role="button"], input:not([type="hidden"]), select, textarea) {
+    font: inherit;
+    min-height: 44px;
+  }
 
-      function hideLoading() {
-        document.getElementById("loading-overlay").style.display = "none";
-      }
+  :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid #1a73e8;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+  }
 
-      function showToast(message, type = 'success') {
-        M.toast({html: message, classes: type === 'error' ? 'red darken-3' : 'green darken-3'});
-      }
+  :where(img, video, canvas, svg, iframe) {
+    max-width: 100%;
+  }
 
-      function loadApp() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(session) {
-          hideLoading();
-          if (session) {
-            if (session.role === 'Administrador') {
-              loadAdminDashboard();
-            } else if (session.role === 'Funcionário') {
-              loadEmployeeDashboard();
-            }
-          } else {
-            loadLoginPage();
-          }
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao verificar sessão: ' + error.message, 'error');
-          loadLoginPage();
-        }).apiGetSessionUser();
-      }
+  :where(img, video, canvas, svg) {
+    height: auto;
+  }
 
-      function loadLoginPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit(); // Re-initialize Materialize components
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de login: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('Login');
-      }
+  :where(table) {
+    max-width: 100%;
+  }
 
-      function loadAdminDashboard() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          // Carregar dados do dashboard do admin
-          google.script.run.withSuccessHandler(function(data) {
-            renderAdminDashboard(data);
-          }).withFailureHandler(function(error) {
-            showToast('Erro ao carregar dados do dashboard do administrador: ' + error.message, 'error');
-          }).apiGetAdminDashboardData();
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar dashboard do administrador: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('AdminDashboard');
-      }
+  :where(.table-responsive, .table-wrapper, .data-table, .table-container, .responsive-table) {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 
-      function loadEmployeeDashboard() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          // Carregar dados do dashboard do funcionário
-          google.script.run.withSuccessHandler(function(data) {
-            renderEmployeeDashboard(data);
-          }).withFailureHandler(function(error) {
-            showToast('Erro ao carregar dados do dashboard do funcionário: ' + error.message, 'error');
-          }).apiGetEmployeeDashboardData();
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar dashboard do funcionário: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('EmployeeDashboard');
-      }
+  :where(.container, .content, .main, .page, .page-content, .app-content, main) {
+    min-width: 0;
+  }
 
-      // Funções de renderização de dashboard (serão implementadas em arquivos JS separados ou aqui)
-      function renderAdminDashboard(data) {
-        document.getElementById('total-users').innerText = data.totalUsers;
-        document.getElementById('active-users').innerText = data.activeUsers;
-        document.getElementById('total-projects').innerText = data.totalProjects;
-        document.getElementById('active-projects').innerText = data.activeProjects;
-        document.getElementById('pending-tasks').innerText = data.pendingTasks;
-        document.getElementById('completed-tasks').innerText = data.completedTasks;
-        document.getElementById('avg-adherence').innerText = data.averageAdherence + '%';
-        document.getElementById('avg-understanding').innerText = data.averageUnderstanding + '%';
-      }
+  :where(.row, .cards, .card-grid, .grid, .toolbar, .actions, .button-group, .form-row) {
+    min-width: 0;
+  }
 
-      function renderEmployeeDashboard(data) {
-        document.getElementById('my-projects-count').innerText = data.myProjectsCount;
-        document.getElementById('my-pending-tasks').innerText = data.pendingMyTasks;
-        document.getElementById('my-completed-tasks').innerText = data.completedMyTasks;
-        document.getElementById('my-avg-adherence').innerText = data.averageAdherence + '%';
-        document.getElementById('my-avg-understanding').innerText = data.averageUnderstanding + '%';
-        // Renderizar tarefas recentes
-        var recentTasksList = document.getElementById('recent-tasks-list');
-        recentTasksList.innerHTML = '';
-        if (data.recentTasks && data.recentTasks.length > 0) {
-          data.recentTasks.forEach(function(task) {
-            var li = document.createElement('li');
-            li.className = 'collection-item';
-            li.innerHTML = `<div>${task.Descricao}<a href="#!" class="secondary-content"><i class="material-icons">send</i></a></div>`;
-            recentTasksList.appendChild(li);
-          });
-        } else {
-          recentTasksList.innerHTML = '<li class="collection-item">Nenhuma tarefa recente.</li>';
+  @media (max-width: 640px) {
+    :where(body) {
+      font-size: 16px;
+    }
+
+    :where(.container, .content, .page-content, .app-content, main) {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    :where(.row, .cards, .card-grid, .grid, .toolbar, .actions, .button-group, .form-row) {
+      flex-wrap: wrap;
+    }
+
+    :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea, button) {
+      max-width: 100%;
+    }
+
+    :where(.hide-on-mobile) {
+      display: none !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+
+
+/* codex-school-community-ux: ajustes finos para uso recorrente por comunidade escolar */
+
+:root {
+  color-scheme: dark;
+  
+  /* Up Oracular (mantido para compatibilidade) */
+  --uo-bg: #15171c;
+  --uo-panel: #20242b;
+  --uo-text: #e9ecf1;
+  --uo-muted: #b2b9c4;
+  --uo-border: #343941;
+  --uo-accent: #7aa2d6;
+  --uo-radius-group: 10px;
+  --uo-radius-control: 8px;
+  
+  /* SGTE Design System (aliases e extensões) */
+  --sgte-bg: var(--uo-bg);
+  --sgte-surface: var(--uo-panel);
+  --sgte-surface-soft: #1a1d23;
+  --sgte-text: var(--uo-text);
+  --sgte-text-muted: var(--uo-muted);
+  --sgte-border: var(--uo-border);
+  --sgte-primary: #8ab4f8;
+  --sgte-primary-strong: #aecbfa;
+  --sgte-primary-soft: rgba(138, 180, 248, 0.12);
+  --sgte-success: #9be7c1;
+  --sgte-warning: #f4c952;
+  --sgte-danger: #f28b82;
+  --sgte-info: #89c4f4;
+  --sgte-radius: 12px;
+  --sgte-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
+  
+  /* Safe areas para S20 */
+  --sgte-safe-area-top: env(safe-area-inset-top, 0px);
+  --sgte-safe-area-bottom: env(safe-area-inset-bottom, 16px);
+  --sgte-safe-area-left: env(safe-area-inset-left, 12px);
+  --sgte-safe-area-right: env(safe-area-inset-right, 12px);
+}
+
+/* Samsung S20 Layout Optimization */
+.view-header, .page-header, main, [class*="content"], .container {
+  padding-left: var(--sgte-safe-area-left);
+  padding-right: var(--sgte-safe-area-right);
+}
+
+main, [class*="content"], .container {
+  padding-bottom: calc(var(--sgte-safe-area-bottom) + 20px);
+}
+
+:where(html) {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+:where(body) {
+  overscroll-behavior-y: contain;
+}
+
+:where(p, li, dd, dt, blockquote, figcaption, label, td, th) {
+  line-height: 1.5;
+}
+
+:where(main, .main, .content, .page, .app, .app-shell, .container, .dashboard, .workspace) {
+  padding-bottom: var(--codex-school-safe-bottom);
+}
+
+:where(a, button, .btn, .button, [role="button"], input, select, textarea, summary) {
+  min-height: var(--codex-school-touch);
+  touch-action: manipulation;
+}
+
+:where(button, .btn, .button, [role="button"], input[type="submit"], input[type="button"]) {
+  border-radius: var(--codex-school-radius) !important;
+  font-weight: 700;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--codex-school-focus) !important;
+  outline-offset: 3px !important;
+}
+
+:where(label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--codex-gentle-muted, var(--text-muted, var(--codex-school-muted-text)));
+  font-weight: 700;
+}
+
+:where(form) {
+  border-radius: var(--codex-school-radius) !important;
+}
+
+:where(fieldset) {
+  border-radius: var(--codex-school-radius) !important;
+  border-color: var(--codex-school-field-border);
+}
+
+:where(legend) {
+  padding-inline: 6px;
+  font-weight: 700;
+}
+
+:where(.form-group, .input-field, .field, .form-field, .control-group) {
+  margin-bottom: var(--codex-school-form-gap);
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  width: min(100%, 100%);
+  border-radius: var(--codex-school-field-radius) !important;
+  border-color: var(--codex-school-field-border) !important;
+  background-color: var(--input-bg, var(--field-bg, var(--codex-school-field-bg)));
+  color: var(--input-text, var(--text-color, var(--codex-school-field-text)));
+  font-size: 16px !important;
+}
+
+:where(input::placeholder, textarea::placeholder) {
+  color: var(--placeholder-color, #94a3b8);
+  opacity: 1;
+}
+
+:where(input[required], select[required], textarea[required]) {
+  border-left: 3px solid var(--codex-gentle-primary-strong, #aecbfa) !important;
+}
+
+:where(input:disabled, select:disabled, textarea:disabled, button:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed !important;
+  opacity: 0.68;
+}
+
+:where(.help, .hint, .help-text, .form-help, small) {
+  line-height: 1.45;
+  color: var(--codex-gentle-muted, var(--text-muted, var(--codex-school-muted-text)));
+}
+
+:where(.actions, .form-actions, .button-row, .toolbar, .topbar, nav, [role="toolbar"]) {
+  gap: 8px;
+}
+
+:where(.actions, .form-actions, .button-row) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+:where(.actions, .form-actions, .button-row) > :where(button, .btn, .button, [role="button"]) {
+  flex: 1 1 148px;
+}
+
+:where(.card, .panel, .box, .tile, .item, .list-item, .action-card) {
+  border-radius: var(--codex-school-radius) !important;
+}
+
+:where(.section, .surface, .widget, .modal-content, .dialog-content, .drawer, .dropdown, .menu) {
+  border-radius: var(--codex-school-radius) !important;
+}
+
+:where(.filters, .search-panel, .form-section) {
+  border-radius: var(--codex-school-radius) !important;
+  background: var(--codex-school-soft-surface);
+}
+
+:where(table) {
+  border-collapse: collapse;
+}
+
+:where(table, .table, .data-table) {
+  max-width: 100%;
+}
+
+:where(.table-wrap, .table-wrapper, .table-container, .responsive-table) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+:where(th, td) {
+  vertical-align: top;
+}
+
+:where(.toast, .alert, .notice, .snackbar, [role="status"], [role="alert"]) {
+  border-radius: var(--codex-school-radius) !important;
+  line-height: 1.45;
+}
+
+@media (max-width: 420px) {
+  :where(body) {
+    font-size: 16px;
+  }
+
+  :where(h1) {
+    font-size: clamp(1.55rem, 1.35rem + 1vw, 2rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  :where(h2) {
+    font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.55rem) !important;
+    line-height: 1.2 !important;
+  }
+
+  :where(.toolbar, .topbar, nav, [role="toolbar"]) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  :where(.hide-mobile, .desktop-only) {
+    display: none !important;
+  }
+}
+</style>
+<style>
+/* codex-s20-mobile-first: Samsung S20 / Chrome mobile baseline (360x800 CSS px) */
+@media screen {
+  :where(html) {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  :where(*, *::before, *::after) {
+    box-sizing: border-box;
+  }
+  :where(body) {
+    min-width: 320px;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  :where(main, .app, .page, .container, .content, .main-content, .dashboard, .view) {
+    max-width: 100%;
+  }
+  :where(img, video, canvas, svg) {
+    max-width: 100%;
+    height: auto;
+  }
+  :where(p, li, td, th, label, legend, button, a, h1, h2, h3, h4, h5, h6) {
+    overflow-wrap: anywhere;
+  }
+  :where(input, select, textarea, button) {
+    font: inherit;
+    max-width: 100%;
+  }
+  :where(input, select, textarea) {
+    font-size: max(16px, 1rem);
+  }
+  :where(button, [role="button"], input, select, textarea, a) {
+    touch-action: manipulation;
+  }
+  :where(.table-wrap, .table-wrapper, .table-responsive, .table-container, .responsive-table, .data-table-wrapper) {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media (max-width: 480px) {
+  :where(body) {
+    font-size: 16px;
+  }
+  :where(.grid, .cards, .dashboard-grid, .stats-grid, .form-grid, .filters-grid) {
+    grid-template-columns: 1fr !important;
+  }
+  :where(.toolbar, .actions, .button-row, .filters, .form-actions, .modal-actions, .header-actions) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  :where(.btn, button, input, select, textarea) {
+    min-height: 44px;
+  }
+  :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  :where(th, td) {
+    white-space: nowrap;
+  }
+  :where(.card, .panel, .modal, .dialog, .drawer) {
+    max-width: calc(100vw - 24px);
+  }
+}
+@media (max-width: 360px) {
+  :where(body) {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  :where(.card, .panel, .section, .modal-content, .dialog-content) {
+    padding: 12px;
+  }
+  :where(h1) {
+    font-size: clamp(1.45rem, 1.2rem + 2vw, 2rem);
+  }
+  :where(h2) {
+    font-size: clamp(1.2rem, 1rem + 1.4vw, 1.55rem);
+  }
+}
+</style>
+<style>
+/* codex-design-system: shared contrast, button sizing and minimal button icon styling */
+:root {
+  --codex-ds-primary: var(--primary, var(--color-primary, var(--theme-primary, #1a73e8)));
+  --codex-ds-primary-strong: var(--primary-dark, var(--color-primary-strong, var(--theme-primary-dark, #1558d6)));
+  --codex-ds-text: var(--text, var(--color-ink, var(--text-primary, #202124)));
+  --codex-ds-muted: var(--muted, var(--color-muted, var(--text-secondary, #5f6368)));
+  --codex-ds-surface: var(--surface, var(--color-surface, var(--bg-surface, #ffffff)));
+  --codex-ds-border: var(--border, var(--color-border, var(--line, #dadce0)));
+  --codex-ds-focus: #1a73e8;
+  --codex-ds-radius: 8px;
+}
+
+:where(body) {
+  color: var(--codex-ds-text);
+}
+
+:where(.text-muted, .muted, .secondary, small, figcaption, caption) {
+  color: var(--codex-ds-muted);
+}
+
+:where(a) {
+  color: var(--codex-ds-primary);
+}
+
+:where(button, .btn, .button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.625rem 1rem;
+  border-radius: var(--codex-ds-radius);
+  border: 1px solid transparent;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+:where(.btn, .button, .btn-primary, .button-primary, .primary, button[type="submit"], input[type="submit"]) {
+  background: var(--codex-ds-primary);
+  color: #ffffff;
+}
+
+:where(.btn:hover, .button:hover, button:hover, [role="button"]:hover) {
+  filter: none;
+}
+
+:where(.btn-primary:hover, .button-primary:hover, button[type="submit"]:hover, input[type="submit"]:hover) {
+  background: var(--codex-ds-primary-strong);
+}
+
+:where(.btn-secondary, .button-secondary, .btn.ghost, .button-quiet, .btn-outline, .secondary, button.secondary) {
+  background: var(--codex-ds-surface);
+  color: var(--codex-ds-text);
+  border-color: var(--codex-ds-border);
+}
+
+:where(.btn-small, .btn.sm, .button-small, .button.sm) {
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+:where(.icon-button, .btn-icon, button.icon, button[aria-label]:not([aria-label=""])) {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: var(--codex-ds-radius);
+}
+
+:where(button svg, .btn svg, .button svg, [role="button"] svg, button .material-icons, .btn .material-icons, .button .material-icons, button .icon, .btn .icon, .button .icon) {
+  width: 1.125rem;
+  height: 1.125rem;
+  min-width: 1.125rem;
+  font-size: 1.125rem;
+  line-height: 1;
+  stroke-width: 2;
+  flex: 0 0 auto;
+}
+
+:where(button .material-icons, .btn .material-icons, .button .material-icons) {
+  font-feature-settings: "liga";
+  vertical-align: middle;
+}
+
+:where(button:focus-visible, .btn:focus-visible, .button:focus-visible, [role="button"]:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible) {
+  outline: 3px solid var(--codex-ds-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--codex-ds-surface) 80%, transparent);
+}
+
+:where(button:disabled, .btn:disabled, .button:disabled, [aria-disabled="true"]) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  :where(.btn, .button, button, input[type="button"], input[type="submit"], input[type="reset"]) {
+    width: auto;
+  }
+  :where(.form-actions > .btn, .form-actions > .button, .form-actions > button, .actions > .btn, .actions > .button, .actions > button) {
+    width: 100%;
+  }
+}
+</style>
+<style>
+/* codex-gentle-dark-theme: default graphite theme with soft, kind UI accents */
+:root {
+  color-scheme: dark;
+  --codex-gentle-bg: #15171c;
+  --codex-gentle-bg-soft: #1a1d23;
+  --codex-gentle-surface: #20242b;
+  --codex-gentle-surface-2: #272b33;
+  --codex-gentle-border: #343941;
+  --codex-gentle-text: #eef1f5;
+  --codex-gentle-muted: #c8ced8;
+  --codex-gentle-dim: #9aa4b2;
+  --codex-gentle-primary: #8ab4f8;
+  --codex-gentle-primary-strong: #aecbfa;
+  --codex-gentle-accent: #8fa0b8;
+  --codex-gentle-success: #9be7c1;
+  --bg: var(--codex-gentle-bg);
+  --background: var(--codex-gentle-bg);
+  --surface: var(--codex-gentle-surface);
+  --panel: var(--codex-gentle-surface);
+  --card: var(--codex-gentle-surface);
+  --text: var(--codex-gentle-text);
+  --text-main: var(--codex-gentle-text);
+  --text-primary: var(--codex-gentle-text);
+  --text-muted: var(--codex-gentle-muted);
+  --muted: var(--codex-gentle-muted);
+  --border: var(--codex-gentle-border);
+  --line: var(--codex-gentle-border);
+  --primary: var(--codex-gentle-primary);
+  --primary-dark: #6ea0ef;
+  --codex-ds-primary: var(--codex-gentle-primary);
+  --codex-ds-primary-strong: var(--codex-gentle-primary-strong);
+  --codex-ds-text: var(--codex-gentle-text);
+  --codex-ds-muted: var(--codex-gentle-muted);
+  --codex-ds-surface: var(--codex-gentle-surface);
+  --codex-ds-border: var(--codex-gentle-border);
+}
+
+:where(html, body) {
+  background: var(--codex-gentle-bg) !important;
+  color: var(--codex-gentle-text) !important;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:where(main, .app, .page, .layout, .content, .main-content, .app-content, .container, .dashboard, .view) {
+  background-color: transparent !important;
+  color: var(--codex-gentle-text) !important;
+}
+
+:where(.card, .panel, .section, .surface, .box, .widget, .modal-content, .dialog-content, .drawer, .dropdown, .menu, .table-wrapper, .table-wrap, .table-container, form) {
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015)),
+              var(--codex-gentle-surface) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28) !important;
+}
+
+:where(header, nav, aside, footer, .navbar, .sidebar, .topbar, .app-header, .app-footer) {
+  background: rgba(12, 15, 21, 0.92) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+}
+
+:where(h1, h2, h3, h4, h5, h6, p, li, label, span, strong, td, th, legend, small, caption) {
+  color: inherit;
+}
+
+:where(h1, .page-title, .view-title) {
+  color: var(--codex-gentle-text) !important;
+}
+
+:where(h1:not(.no-emoji), .page-title:not(.no-emoji), .view-title:not(.no-emoji))::after {
+  content: "";
+  font-size: 0.82em;
+}
+
+:where(.empty-state, .empty, .no-data, .no-results, .loading, .placeholder)::before {
+  content: "";
+}
+
+:where(.text-muted, .muted, .secondary, .subtitle, .description, .help-text, .hint, small, figcaption, caption) {
+  color: var(--codex-gentle-muted) !important;
+}
+
+:where(a) {
+  color: var(--codex-gentle-primary-strong) !important;
+}
+
+:where(input, select, textarea) {
+  background: var(--codex-gentle-bg-soft) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+}
+
+:where(input::placeholder, textarea::placeholder) {
+  color: var(--codex-gentle-dim) !important;
+}
+
+:where(table) {
+  color: var(--codex-gentle-text) !important;
+}
+
+:where(th) {
+  color: var(--codex-gentle-muted) !important;
+  background: rgba(255,255,255,0.035) !important;
+}
+
+:where(td) {
+  border-color: var(--codex-gentle-border) !important;
+}
+
+:where(button, .btn, .button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
+  background: var(--codex-gentle-surface-2) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+  box-shadow: none !important;
+}
+
+:where(.btn, .button, .btn-primary, .button-primary, .primary, button[type="submit"], input[type="submit"]) {
+  background: linear-gradient(180deg, rgba(174, 203, 250, 0.24), rgba(138, 180, 248, 0.16)),
+              #182235 !important;
+  color: #f8fbff !important;
+  border-color: rgba(174, 203, 250, 0.45) !important;
+}
+
+:where(button[type="submit"]:not(.icon-button):not(.btn-icon), input[type="submit"])::after {
+  content: "";
+  font-size: 0.9em;
+}
+
+:where(.btn-secondary, .button-secondary, .btn.ghost, .button-quiet, .btn-outline, .secondary, button.secondary) {
+  background: rgba(255,255,255,0.035) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+}
+
+:where(.badge, .tag, .chip, .pill, .status) {
+  background: rgba(248, 199, 220, 0.12) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: rgba(248, 199, 220, 0.26) !important;
+}
+
+:where(hr) {
+  border-color: var(--codex-gentle-border) !important;
+}
+
+:where(svg, canvas, img) {
+  color: inherit;
+}
+</style>
+<style>
+/* codex-theme-toggle: sun-moon control integrated with page buttons */
+:root {
+  --codex-theme-toggle-bg: rgba(255,255,255,0.055);
+  --codex-theme-toggle-border: rgba(255,255,255,0.16);
+  --codex-theme-toggle-text: var(--codex-gentle-text, #eef1f5);
+}
+
+:root[data-theme="light"],
+html[data-theme="light"],
+body[data-theme="light"] {
+  color-scheme: light;
+  --codex-gentle-bg: #f7f8fb;
+  --codex-gentle-bg-soft: #ffffff;
+  --codex-gentle-surface: #ffffff;
+  --codex-gentle-surface-2: #f1f4f8;
+  --codex-gentle-border: #d8dee8;
+  --codex-gentle-text: #20242a;
+  --codex-gentle-muted: #596273;
+  --codex-gentle-dim: #6f7a8a;
+  --codex-gentle-primary: #1a73e8;
+  --codex-gentle-primary-strong: #1558d6;
+  --codex-gentle-accent: #b84377;
+  --codex-ds-primary: var(--codex-gentle-primary);
+  --codex-ds-primary-strong: var(--codex-gentle-primary-strong);
+  --codex-ds-text: var(--codex-gentle-text);
+  --codex-ds-muted: var(--codex-gentle-muted);
+  --codex-ds-surface: var(--codex-gentle-surface);
+  --codex-ds-border: var(--codex-gentle-border);
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body,
+body[data-theme="light"] {
+  background: radial-gradient(circle at 10% 0%, rgba(26,115,232,0.09), transparent 28%),
+              radial-gradient(circle at 90% 8%, rgba(184,67,119,0.07), transparent 24%),
+              #f7f8fb !important;
+  color: var(--codex-gentle-text) !important;
+}
+
+html[data-theme="light"] :where(.card, .panel, .section, .surface, .box, .widget, .modal-content, .dialog-content, .drawer, .dropdown, .menu, .table-wrapper, .table-wrap, .table-container, form) {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.96)) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+  box-shadow: 0 10px 28px rgba(31,41,55,0.10) !important;
+}
+
+html[data-theme="light"] :where(header, nav, aside, footer, .navbar, .sidebar, .topbar, .app-header, .app-footer) {
+  background: rgba(255,255,255,0.92) !important;
+  color: var(--codex-gentle-text) !important;
+  border-color: var(--codex-gentle-border) !important;
+}
+
+.codex-theme-toggle {
+  width: auto !important;
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 2147483000;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--codex-theme-toggle-border);
+  border-radius: 999px;
+  background: var(--codex-theme-toggle-bg);
+  color: var(--codex-theme-toggle-text);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.codex-theme-toggle__icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.codex-theme-toggle__label {
+  font-size: 0.875rem;
+}
+
+.codex-theme-toggle.is-integrated {
+  position: static;
+  z-index: auto;
+  margin-left: 0.5rem;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 480px) {
+  .codex-theme-toggle:not(.is-integrated) .codex-theme-toggle__label {
+    display: none;
+  }
+}
+</style>
+
+
+<style id="up-oracular-design-system">
+:root {
+  color-scheme: dark;
+  --uo-bg: #15171c;
+  --uo-panel: #20242b;
+  --uo-text: #e9ecf1;
+  --uo-muted: #b2b9c4;
+  --uo-border: #343941;
+  --uo-accent: #7aa2d6;
+  --uo-radius-group: 10px;
+  --uo-radius-control: 8px;
+}
+
+html, body {
+  background: var(--uo-bg) !important;
+  color: var(--uo-text) !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body, input, select, textarea, button {
+  color: var(--uo-text);
+}
+
+.card, .panel, .modal, .dialog, dialog, .container,
+.box, .widget, .section, .sidebar, .drawer, .popover,
+[role="dialog"], [class*="card"], [class*="panel"] {
+  background-color: var(--uo-panel) !important;
+  border-color: var(--uo-border) !important;
+  border-radius: var(--uo-radius-group) !important;
+}
+
+button, input, select, textarea, .btn, .button,
+[role="button"], [role="menuitem"], .dropdown-item,
+.menu-item, [class*="button"], [class*="dropdown-item"] {
+  border-radius: var(--uo-radius-control) !important;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+input, select, textarea {
+  background-color: var(--uo-panel) !important;
+  border: 1px solid var(--uo-border) !important;
+  padding: 8px !important;
+  box-sizing: border-box;
+}
+
+label, .form-label, [class*="form-label"] {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--uo-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.35;
+}
+
+.uo-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.uo-feedback-box {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483647;
+  min-width: 220px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--uo-border);
+  border-radius: var(--uo-radius-group);
+  background: var(--uo-panel);
+  color: var(--uo-text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.uo-feedback-box.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.uo-feedback-box[data-kind="ok"] {
+  border-color: #8fc2a6;
+  color: #8fc2a6;
+}
+
+.uo-feedback-box[data-kind="err"] {
+  border-color: #d98b93;
+  color: #d98b93;
+}
+
+form[aria-busy="true"] {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+form[aria-busy="true"] :is(button, input[type="submit"], input[type="button"]) {
+  pointer-events: none;
+}
+
+button, .btn-primary, .button-primary,
+[class*="primary"][role="button"] {
+  background-color: var(--uo-accent) !important;
+}
+
+p, small, .muted, .secondary, .subtitle,
+[class*="muted"], [class*="secondary"] {
+  color: var(--uo-muted) !important;
+}
+
+hr, table, th, td, fieldset {
+  border-color: var(--uo-border) !important;
+}
+
+a {
+  color: var(--uo-accent);
+}
+
+/* Geometrias funcionais permanecem circulares. */
+.avatar, .spinner, .loading-ring, .dot, .status-dot,
+[class*="avatar"], [class*="spinner"], [class*="loading-ring"] {
+  border-radius: 50% !important;
+}
+</style>
+<script id="up-oracular-form-feedback">
+(function () {
+  'use strict';
+  if (window.UpOracularFeedback) return;
+
+  var timer = null;
+  function notify(kind, message) {
+    var box = document.getElementById('uo-feedback-box');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'uo-feedback-box';
+      box.className = 'uo-feedback-box';
+      box.setAttribute('role', 'status');
+      box.setAttribute('aria-live', 'polite');
+      document.body.appendChild(box);
+    }
+    box.dataset.kind = kind === 'err' ? 'err' : 'ok';
+    box.textContent = String(message || (kind === 'err' ? 'Nao foi possivel concluir.' : 'Operacao concluida.'));
+    box.classList.add('is-visible');
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      box.classList.remove('is-visible');
+    }, 1000);
+  }
+
+  function connectLabels(form) {
+    form.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(function (field, index) {
+      var id = field.id || ('uo-field-' + index + '-' + Math.random().toString(36).slice(2, 7));
+      field.id = id;
+      var label = form.querySelector('label[for="' + id + '"]');
+      if (!label) {
+        var sibling = field.previousElementSibling;
+        if (sibling && sibling.tagName === 'LABEL') {
+          sibling.htmlFor = id;
+          label = sibling;
         }
       }
-
-      // Funções para carregar outras páginas (ex: gerenciamento de usuários, projetos, etc.)
-      function loadUserManagementPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadUsersTable(); // Carregar dados da tabela de usuários
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de gerenciamento de usuários: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('UserManagement');
+      if (label && field.parentElement && !field.parentElement.classList.contains('uo-field')) {
+        field.parentElement.classList.add('uo-field');
       }
+    });
+  }
 
-      function loadProjectManagementPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadProjectsTable(); // Carregar dados da tabela de projetos
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de gerenciamento de projetos: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('ProjectManagement');
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form').forEach(connectLabels);
+  });
+
+  document.addEventListener('submit', function (event) {
+    var form = event.target;
+    if (!form || form.tagName !== 'FORM') return;
+    form.setAttribute('aria-busy', 'true');
+    notify('ok', 'Enviando...');
+    window.setTimeout(function () {
+      if (form.getAttribute('aria-busy') === 'true') {
+        form.removeAttribute('aria-busy');
       }
+    }, 10000);
+  }, true);
 
-      function loadTaskManagementPage(projectId = null) {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadTasksTable(projectId); // Carregar dados da tabela de tarefas
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de gerenciamento de tarefas: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('TaskManagement');
+  window.UpOracularFeedback = {
+    ok: function (message) { notify('ok', message); },
+    err: function (message) { notify('err', message); },
+    done: function (form, message) {
+      if (form) form.removeAttribute('aria-busy');
+      notify('ok', message);
+    },
+    fail: function (form, message) {
+      if (form) form.removeAttribute('aria-busy');
+      notify('err', message);
+    }
+  };
+}());
+</script>
+
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style id="cdx-mi-style">.cdx-mi{font-size:1.1em;line-height:1;vertical-align:-0.15em}</style>
+  <style id="cdx-border-to-color">
+/* Padronização de borders → cores complementares (FROTA-20) */
+input:not([type="hidden"]),
+textarea,
+select,
+[class*="input"],
+[class*="field"],
+[class*="form"],
+.card,
+.panel,
+.box,
+.container,
+.modal,
+[class*="modal"],
+[class*="dialog"],
+dialog {
+  border: none !important;
+  border-width: 0 !important;
+}
+
+input:not([type="hidden"]),
+textarea,
+select {
+  background-color: #eef1f5 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 2px #1f2937 !important;
+}
+  </style>
+
+    <title>Página</title>
+  <style id="fleet-mobile-wcag-aa">
+    /* Contrato FROTA: ergonomia S20 e WCAG 2.1 AA. */
+    html, body { max-width: 100%; overflow-x: hidden; }
+    :is(button, [role="button"], input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+      min-width: 48px !important;
+      min-height: 48px !important;
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-conteudo">
+      <div class="app-topbar__user" style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:8px;">
+        <span class="app-topbar__username" id="app-topbar-username" style="font-size:.95rem;opacity:.92;"><?= (typeof sessionUsername !== 'undefined' && sessionUsername) ? sessionUsername : '' ?></span>
+        <button id="codex-theme-toggle" class="codex-theme-toggle btn btn-secondary is-integrated" type="button" aria-label="Alternar tema claro e escuro" title="Alternar tema" style="position:static;min-height:40px;padding:7px 14px;cursor:pointer;border:1px solid var(--uo-border,#343941);background:var(--uo-panel,#20242b);color:var(--uo-text,#e9ecf1);border-radius:var(--uo-radius-control,8px);">
+          <span class="codex-theme-toggle__icon" aria-hidden="true">🌙</span>
+          <span class="codex-theme-toggle__label">Escuro</span>
+        </button>
+        <button type="button" class="app-topbar__logout" onclick="appLogout()" aria-live="polite"
+                style="min-height:40px;padding:7px 14px;cursor:pointer;border:1px solid var(--uo-border,#343941);background:var(--uo-panel,#20242b);color:var(--uo-text,#e9ecf1);border-radius:var(--uo-radius-control,8px);">Sair</button>
+      </div>
+      <script>
+        (function () {
+          var TOKEN = <?= JSON.stringify(typeof authToken !== 'undefined' ? authToken : '') ?>;
+          var BASE_URL = <?= JSON.stringify(typeof baseUrl !== 'undefined' ? baseUrl : '') ?>;
+          window.appLogout = function () {
+            var button = document.querySelector('.app-topbar__logout');
+            if (button) { button.disabled = true; button.textContent = 'Saindo...'; }
+            function leave() {
+              if (BASE_URL) { window.top.location.href = BASE_URL; }
+              else { window.top.location.reload(); }
+            }
+            function retry(error) {
+              console.warn('Não foi possível encerrar a sessão:', error);
+              if (button) { button.disabled = false; button.textContent = 'Tentar sair novamente'; }
+            }
+            if (window.google && google.script && google.script.run) {
+              google.script.run.withSuccessHandler(leave).withFailureHandler(retry).logoutWithToken(TOKEN);
+            } else {
+              retry(new Error('Conexão com o servidor indisponível.'));
+            }
+          };
+        }());
+      </script>
+      <h1 id="titulo">Um conto por aluno</h1>
+      <nav class="acervo-nav" role="tablist" aria-label="Módulos do Tool Debate">
+        <button type="button" id="abaLeitura" role="tab" aria-selected="true" aria-controls="moduloLeitura" tabindex="0">Ouvir o acervo</button>
+        <button type="button" id="abaCriacao" role="tab" aria-selected="false" aria-controls="moduloCriacao" tabindex="-1">Criar um conto</button>
+      </nav>
+      <div id="progressoCriacao" class="progresso oculto">
+        <div class="progresso-barra"><span id="progressoPreenchido"></span></div>
+        <small id="progressoTexto">Carregando...</small>
+      </div>
+    </div>
+  </header>
+
+  <main id="moduloLeitura" role="tabpanel" aria-labelledby="abaLeitura" tabindex="-1">
+    <section class="acervo-cabecalho" aria-labelledby="acervoTituloModulo">
+      <div>
+        <p class="acervo-sobretitulo">Clube de leitura EC 115 Norte</p>
+        <h2 id="acervoTituloModulo">Uma história de cada vez, muitas vozes na escola</h2>
+        <p>Ouça um conto escrito por outro estudante, acompanhe cada trecho e descubra as pistas que dão sentido à narrativa.</p>
+      </div>
+
+      <div class="acervo-perfil" aria-label="Identificação do leitor">
+        <div class="acervo-campo">
+          <label for="acervoIdentificacao">Nome, apelido ou código <span class="acervo-opcional">(opcional)</span></label>
+          <input inputmode="text" id="acervoIdentificacao" type="text" maxlength="80" autocomplete="name" placeholder="Opcional — deixe em branco para entrar como visitante" aria-describedby="acervoIdentificacaoDica">
+          <small id="acervoIdentificacaoDica" class="acervo-dica">Sem preencher, sugerimos automaticamente o conto mais próximo do seu gosto.</small>
+        </div>
+        <div class="acervo-campo">
+          <label for="acervoIdade">Idade</label>
+          <input id="acervoIdade" type="number" min="5" max="18" inputmode="numeric" placeholder="9">
+        </div>
+        <button type="button" id="acervoSortear" class="acervo-botao acervo-botao--principal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M16 3h5v5"></path><path d="M4 20 21 3"></path>
+            <path d="M21 16v5h-5"></path><path d="m15 15 6 6"></path>
+            <path d="m4 4 5 5"></path>
+          </svg>
+          Sugerir conto
+        </button>
+        <p id="acervoRecomendacao" class="acervo-recomendacao" role="status" aria-live="polite">
+          Entre com seu estudante para receber contos ordenados pelo seu perfil de leitura.
+        </p>
+      </div>
+    </section>
+
+    <section class="acervo-analise-etaria" aria-labelledby="acervoAnaliseEtariaTitulo">
+      <p class="acervo-sobretitulo">Mapa do acervo</p>
+      <h3 id="acervoAnaliseEtariaTitulo">Padrões por idade dos autores</h3>
+      <p id="acervoAnaliseEtariaTexto" aria-live="polite">
+        Gerando automaticamente a leitura inicial das faixas etárias dos autores dos contos...
+      </p>
+    </section>
+
+    <section class="acervo-grade" aria-label="Player de leitura">
+      <article class="acervo-cartao acervo-leitor">
+        <div class="acervo-leitor__cabecalho">
+          <div>
+            <span id="acervoMeta" class="acervo-meta">Acervo de fanzines da escola</span>
+            <h3 id="acervoTitulo">Seu próximo conto aparece aqui</h3>
+          </div>
+          <div id="acervoStatus" class="acervo-status" data-estado="pronto" role="status" aria-live="polite">
+          <span id="acervoStatusTexto">Informe seu código e receba a sugestão de um conto.</span>
+          </div>
+        </div>
+
+        <div id="acervoTexto" class="acervo-texto acervo-texto--vazio" role="region" aria-labelledby="acervoTitulo" aria-live="off" tabindex="0">
+          A caixa de leitura ocupa o centro da experiência. Quando você receber a sugestão de um conto, o texto aparecerá aqui e cada trecho será destacado enquanto a voz narra.
+        </div>
+
+        <div id="acervoProgresso" class="acervo-progresso" role="progressbar" aria-label="Progresso da leitura" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="acervoProgressoFala"></span>
+        </div>
+
+        <div class="acervo-acoes" aria-label="Controles do player">
+          <button type="button" id="acervoPlay" class="acervo-botao acervo-botao--ouvir" disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7 4 13 8-13 8V4Z"></path></svg>
+            <span>Ouvir</span>
+          </button>
+          <button type="button" id="acervoPausar" class="acervo-botao" disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"></path></svg>
+            <span>Pausar</span>
+          </button>
+          <button type="button" id="acervoStop" class="acervo-botao acervo-botao--parar" disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg>
+            <span>Parar</span>
+          </button>
+          <button type="button" id="acervoReiniciar" class="acervo-botao" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path>
+            </svg>
+            <span>Recomeçar</span>
+          </button>
+          <button type="button" id="acervoConcluirSemAudio" class="acervo-botao" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m5 12 4 4L19 6"></path>
+            </svg>
+            <span>Já li até o fim</span>
+          </button>
+        </div>
+      </article>
+
+      <aside class="acervo-painel" aria-label="Painel do leitor">
+        <section class="acervo-cartao">
+          <h3>Seu percurso</h3>
+          <div class="acervo-pontos">
+            <div class="acervo-metrica"><strong id="acervoPontos">0</strong><span>pontos</span></div>
+            <div class="acervo-metrica"><strong id="acervoLeituras">0</strong><span>contos lidos</span></div>
+            <div class="acervo-metrica"><strong id="acervoSequencia">0</strong><span>sequência perfeita</span></div>
+            <div class="acervo-metrica"><strong>2</strong><span>pistas por conto</span></div>
+          </div>
+          <div class="acervo-nivel">
+            <strong id="acervoNivel">Semente de histórias</strong>
+            <div id="acervoNivelProgresso" class="acervo-nivel__barra" role="progressbar" aria-label="Progresso para o próximo nível" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="acervoNivelBarra"></span></div>
+            <small id="acervoMetaNivel">Próximo: Explorador de contos em 50 pontos</small>
+          </div>
+        </section>
+
+        <section class="acervo-cartao">
+          <h3>Como a voz conta</h3>
+          <div class="acervo-controles">
+            <div class="acervo-controle">
+              <label for="acervoVoice">Voz</label>
+              <select id="acervoVoice" aria-label="Voz da leitura"></select>
+            </div>
+            <div class="acervo-controle">
+              <div class="acervo-velocidade">
+                <label for="acervoRate">Velocidade</label>
+                <output id="acervoRateValor" for="acervoRate">1.0x</output>
+              </div>
+              <input id="acervoRate" type="range" min=".6" max="1.5" step=".1" value="1">
+            </div>
+          </div>
+        </section>
+
+        <section class="acervo-cartao">
+          <h3>Missão do conto</h3>
+          <p class="acervo-missao"><strong>Ouça até o fim</strong> para ganhar 5 pontos extras. Depois, responda duas perguntas sobre escolhas, mudanças e consequências na história.</p>
+        </section>
+      </aside>
+    </section>
+
+    <section id="acervoPerguntas" class="acervo-cartao acervo-etapa" hidden aria-labelledby="acervoPerguntasTitulo">
+      <div class="acervo-etapa__cabecalho">
+        <div>
+          <p class="acervo-sobretitulo">Desafio de sentido</p>
+          <h2 id="acervoPerguntasTitulo">Quais pistas você percebeu?</h2>
+          <p>As ideias são profundas, mas as respostas são curtas. Escolha a alternativa que melhor combina com o conto.</p>
+        </div>
+      </div>
+      <div id="acervoPerguntasLista" class="acervo-perguntas"></div>
+      <div class="acervo-etapa__acoes">
+        <button type="button" id="acervoEnviarRespostas" class="acervo-botao acervo-botao--principal">Concluir desafio</button>
+      </div>
+    </section>
+
+    <section id="acervoResultado" class="acervo-cartao acervo-etapa acervo-resultado" hidden aria-live="polite">
+      <div class="acervo-resultado__placar">
+        <strong id="acervoResultadoPontos">+0</strong>
+        <span>pontos</span>
+      </div>
+      <div>
+        <h2>Conto concluído</h2>
+        <p id="acervoResultadoMensagem"></p>
+        <div id="acervoConquistas" class="acervo-conquistas"></div>
+      </div>
+      <button type="button" id="acervoOutroConto" class="acervo-botao acervo-botao--principal">Sugerir outro conto</button>
+    </section>
+
+    <section id="acervoParabens" class="acervo-cartao acervo-etapa acervo-resultado" hidden aria-live="polite">
+      <div class="acervo-resultado__placar">
+        <strong><i class="material-icons cdx-mi" aria-hidden="true">emoji_events</i></strong>
+        <span>acervo completo</span>
+      </div>
+      <div>
+        <h2>Parabéns! Você leu todo o acervo <i class="material-icons cdx-mi" aria-hidden="true">celebration</i></h2>
+        <p id="acervoParabensMensagem">Você ouviu e compreendeu todos os contos da turma. Que leitor(a) incrível!</p>
+        <div id="acervoParabensConquistas" class="acervo-conquistas"></div>
+      </div>
+    </section>
+  </main>
+
+  <main id="moduloCriacao" class="container oculto" role="tabpanel" aria-labelledby="abaCriacao" tabindex="-1" hidden>
+    <!-- Painel de status: visível para professores acompanharem a turma sem abrir a planilha -->
+    <section id="painelStatusTurma" class="cartao" style="margin-bottom:1rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+        <div>
+          <p style="margin:0 0 2px;font-size:0.75rem;color:var(--cinza,#9aa4b2);">Status da turma</p>
+          <strong id="statusTurmaTexto" style="font-size:0.95rem;">Carregando...</strong>
+        </div>
+        <button type="button" id="botaoAtualizarStatus" class="botao secundario pequeno"
+                style="min-height:auto;padding:6px 12px;font-size:0.8rem;"
+                aria-label="Atualizar status da turma">
+          ↺ Atualizar
+        </button>
+      </div>
+      <div id="statusTurmaGrid" style="
+          display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+          gap:0.6rem;margin-top:0.85rem;">
+        <div class="status-item" style="padding:10px;border:1px solid var(--uo-border,#343941);border-radius:8px;text-align:center;">
+          <p style="margin:0;font-size:1.4rem;font-weight:700;" id="statusEnviados">–</p>
+          <small style="color:var(--cinza,#9aa4b2);">Enviados</small>
+        </div>
+        <div class="status-item" style="padding:10px;border:1px solid var(--uo-border,#343941);border-radius:8px;text-align:center;">
+          <p style="margin:0;font-size:1.4rem;font-weight:700;color:#d9b271;" id="statusGerando">–</p>
+          <small style="color:var(--cinza,#9aa4b2);">Gerando</small>
+        </div>
+        <div class="status-item" style="padding:10px;border:1px solid var(--uo-border,#343941);border-radius:8px;text-align:center;">
+          <p style="margin:0;font-size:1.4rem;font-weight:700;color:#8fc2a6;" id="statusProntos">–</p>
+          <small style="color:var(--cinza,#9aa4b2);">Prontos</small>
+        </div>
+        <div class="status-item" style="padding:10px;border:1px solid var(--uo-border,#343941);border-radius:8px;text-align:center;">
+          <p style="margin:0;font-size:1.4rem;font-weight:700;color:#d98b93;" id="statusErro">–</p>
+          <small style="color:var(--cinza,#9aa4b2);">Com erro</small>
+        </div>
+      </div>
+      <p id="statusTurmaErro" role="alert" style="display:none;margin:0.5rem 0 0;font-size:0.8rem;color:#d98b93;"></p>
+    </section>
+    <script>
+    (function() {
+      function carregarStatus() {
+        var btn = document.getElementById('botaoAtualizarStatus');
+        var txt = document.getElementById('statusTurmaTexto');
+        var err = document.getElementById('statusTurmaErro');
+        if (btn) btn.disabled = true;
+        if (txt) txt.textContent = 'Atualizando...';
+        if (err) err.style.display = 'none';
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (btn) btn.disabled = false;
+            if (!r) return;
+            var set = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v != null ? v : '–'; };
+            set('statusEnviados', r.total);
+            set('statusGerando', r.gerando);
+            set('statusProntos', r.prontos);
+            set('statusErro', r.erros);
+            if (txt) txt.textContent = 'Turma — ' + (r.total || 0) + ' respostas registradas';
+          })
+          .withFailureHandler(function(e) {
+            if (txt) txt.textContent = 'Não foi possível carregar o status.';
+            if (err) { err.textContent = 'Tente novamente ou consulte a planilha.'; err.style.display = ''; }
+            if (btn) btn.disabled = false;
+          })
+          .getStatusTurma();
       }
-
-      function loadEvaluationPage(projectId = null) {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadEvaluationsTable(projectId); // Carregar dados da tabela de avaliações
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de avaliações: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('Evaluation');
-      }
-
-      function loadReportPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de relatórios: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('Reports');
-      }
-
-      function loadSettingsPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadUserSettings();
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de configurações: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('Settings');
-      }
-
-      function loadGeminiChatPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadChatHistory();
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página do Gemini Chat: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('GeminiChat');
-      }
-
-      function loadDriveFilesPage() {
-        showLoading();
-        google.script.run.withSuccessHandler(function(html) {
-          hideLoading();
-          document.getElementById('app-content').innerHTML = html;
-          M.AutoInit();
-          loadDriveFiles();
-        }).withFailureHandler(function(error) {
-          hideLoading();
-          showToast('Erro ao carregar página de arquivos do Drive: ' + error.message, 'error');
-        }).HtmlOutputRenderer.renderHtmlTemplate('DriveFiles');
-      }
-
+      document.addEventListener('DOMContentLoaded', function() {
+        var btn = document.getElementById('botaoAtualizarStatus');
+        if (btn) btn.addEventListener('click', carregarStatus);
+        /* Carrega automaticamente ao abrir a aba de criação */
+        var abaCriacao = document.getElementById('abaCriacao');
+        if (abaCriacao) {
+          abaCriacao.addEventListener('click', function() {
+            setTimeout(carregarStatus, 300);
+          });
+        }
+      });
+    })();
     </script>
-  </body>
+    <!-- Estado: carregando -->
+    <section id="telaCarregando" class="cartao centralizado">
+      <div class="spinner"></div>
+      <p>Carregando o questionário...</p>
+    </section>
+
+    <!-- Estado: intro / identificação -->
+    <section id="telaIntro" class="cartao oculto">
+      <h2>Vamos criar um conto! <i class="material-icons cdx-mi" aria-hidden="true">edit</i></h2>
+      <p class="ajuda">Uma pergunta por vez. Cada aluno cria um único conto, ligado ao seu login.</p>
+      <p id="avisoJaRespondeu" class="ajuda oculto" style="font-weight:700;">
+        Você já criou o seu conto <i class="material-icons cdx-mi" aria-hidden="true">celebration</i> Cada aluno cria um único conto. Toque em
+        <strong>“Ouvir o acervo”</strong> para ler os contos da turma.
+      </p>
+      <button type="button" id="botaoRetomarRascunho" class="botao primario grande bloco oculto">Retomar revisão do conto</button>
+      <div class="campos-opcionais" id="camposOpcionais">
+        <label>Identificação do aluno
+          <input inputmode="text" type="text" id="campoIdentificacao" maxlength="80" placeholder="nome, código ou turma" autocomplete="name">
+        </label>
+        <label>Idade
+          <input inputmode="decimal" type="number" id="campoIdade" min="3" max="18" placeholder="ex.: 8">
+        </label>
+      </div>
+      <p id="progressoGlobalIntro" class="global"></p>
+      <button type="button" id="botaoComecar" class="botao primario grande bloco">Começar →</button>
+      <div id="blocoResumoProgresso" class="oculto" style="margin-top: 15px; text-align: center;">
+        <span style="font-size: 0.85rem; color: var(--cinza); display: block; margin-bottom: 8px;" id="resumoProgressoTexto"></span>
+        <button type="button" id="botaoLimparProgresso" class="botao secundario pequeno" style="min-height: auto; min-width: auto; padding: 6px 12px; font-size: 0.8rem;">Começar do Zero</button>
+      </div>
+    </section>
+
+    <!-- Estado: pergunta única (preenchida dinamicamente) -->
+    <section id="telaPergunta" class="cartao pergunta oculto">
+      <div class="pergunta-cabecalho">
+        <span class="pergunta-texto" id="perguntaTexto"></span>
+      </div>
+      <div class="opcoes" id="perguntaOpcoes"></div>
+      <div class="navegacao">
+        <button type="button" id="botaoVoltar" class="botao secundario">← Voltar</button>
+        <button type="button" id="botaoProxima" class="botao primario" disabled>Próxima →</button>
+      </div>
+    </section>
+
+    <!-- Estado: revisão -->
+    <section id="telaRevisao" class="oculto">
+      <div class="cartao">
+        <h2>Revisão</h2>
+        <p class="ajuda">Confira as respostas. Toque em qualquer uma para alterar.</p>
+        <ul id="listaRevisao" class="revisao"></ul>
+        <label class="comentario-label">Comentário livre (opcional)
+          <textarea id="campoComentario" rows="2" maxlength="240" placeholder="algo que a criança queira dizer"></textarea>
+        </label>
+        <label class="comentario-label">
+          <input type="checkbox" id="consentimentoIaAgora">
+          Autorizo agora o uso das minhas escolhas para gerar um rascunho com IA. O consentimento generativo persistente também será verificado.
+        </label>
+        <div class="navegacao">
+          <button type="button" id="botaoVoltarRevisao" class="botao secundario">← Voltar</button>
+          <button type="button" id="botaoEnviar" class="botao primario">Enviar e atribuir diretriz</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estado: resultado -->
+    <section id="telaResultado" class="oculto">
+      <div class="cartao resultado">
+        <div class="selo">✓</div>
+        <h2 id="resultadoTitulo">Rascunho criado!</h2>
+        <p id="resultadoAluno" class="resultado-aluno"></p>
+        <div class="diretriz">
+          <span class="diretriz-rotulo">Diretriz atribuída</span>
+          <strong id="resultadoDiretrizId"></strong>
+          <p id="resultadoDiretrizTitulo"></p>
+          <ul id="resultadoCampos" class="diretriz-detalhes"></ul>
+          <small id="resultadoMetodo" class="metodo"></small>
+        </div>
+
+        <div id="resultadoConto" class="conto-info oculto">
+          <span id="resultadoContoRotulo" class="diretriz-rotulo">Rascunho gerado — revise antes de publicar</span>
+          <p id="resultadoContoTitulo"></p>
+          <small id="resultadoContoMeta"></small>
+          <a id="resultadoContoLink" class="botao secundario pequeno" target="_blank" rel="noopener">Abrir .txt no Drive</a>
+          <div id="resultadoPerguntas" class="oculto">
+            <span class="diretriz-rotulo"><i class="material-icons cdx-mi" aria-hidden="true">menu_book</i> Depois de ler, responda no caderno</span>
+            <ol id="resultadoPerguntasLista"></ol>
+          </div>
+        </div>
+        <div id="resultadoContoErro" class="conto-erro oculto"></div>
+
+        <p id="resultadoProgresso" class="global"></p>
+        <button type="button" id="botaoIrAcervo" class="botao primario grande bloco">Ouvir o acervo →</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="aviso" class="aviso oculto" role="alert"></div>
+  <div id="acervoAviso" class="acervo-aviso" role="status" aria-live="polite" hidden></div>
+
+  <?!= include('LeituraAcervoCliente'); ?>
+  <?!= include('JsCliente'); ?>
+<script>
+(function() {
+  var STORAGE_KEY = 'codex.preferredTheme';
+
+  function applyTheme(theme) {
+    var next = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    if (document.body) document.body.setAttribute('data-theme', next);
+    var btn = document.getElementById('codex-theme-toggle');
+    if (btn) {
+      var icon = btn.querySelector('.codex-theme-toggle__icon');
+      var label = btn.querySelector('.codex-theme-toggle__label');
+      if (icon) icon.textContent = next === 'light' ? '☀️' : '🌙';
+      if (label) label.textContent = next === 'light' ? 'Claro' : 'Escuro';
+      btn.setAttribute('aria-pressed', next === 'light' ? 'true' : 'false');
+      btn.setAttribute('title', next === 'light' ? 'Usar tema escuro' : 'Usar tema claro');
+    }
+  }
+
+  function preferredTheme() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) || 'dark';
+    } catch (e) {
+      return 'dark';
+    }
+  }
+
+  function saveTheme(theme) {
+    try {
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch (e) {}
+  }
+
+  function integrateButton(btn) {
+    var target = document.querySelector('.header-actions, .topbar-actions, .navbar-actions, .nav-actions, header .actions, nav .actions, .app-header, .topbar, .navbar, header, nav');
+    if (target && !target.contains(btn)) {
+      target.appendChild(btn);
+      btn.classList.add('is-integrated');
+    }
+  }
+
+  function initThemeToggle() {
+    var btn = document.getElementById('codex-theme-toggle');
+    if (!btn) return;
+    applyTheme(preferredTheme());
+    integrateButton(btn);
+    btn.addEventListener('click', function() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var next = current === 'light' ? 'dark' : 'light';
+      saveTheme(next);
+      applyTheme(next);
+      integrateButton(btn);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initThemeToggle);
+  } else {
+    initThemeToggle();
+  }
+})();
+</script>
+
+<script>
+/* codex-school-community-ux-script: pequenos ajustes de contexto escolar */
+(function() {
+  if (window.__codexSchoolCommunityUx) return;
+  window.__codexSchoolCommunityUx = true;
+
+  function ready(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+    else fn();
+  }
+
+  ready(function() {
+    document.documentElement.setAttribute('data-community-context', 'school');
+
+    document.querySelectorAll('form').forEach(function(form) {
+      if (!form.getAttribute('aria-label') && !form.getAttribute('aria-labelledby')) {
+        form.setAttribute('aria-label', 'Formulario da comunidade escolar');
+      }
+    });
+
+    document.querySelectorAll('input, select, textarea').forEach(function(field) {
+      if (!field.id && field.name) field.id = 'field-' + String(field.name).replace(/[^a-zA-Z0-9_-]/g, '-');
+      if (field.required && !field.getAttribute('aria-required')) field.setAttribute('aria-required', 'true');
+      if (!field.getAttribute('autocomplete')) {
+        var type = (field.getAttribute('type') || '').toLowerCase();
+        var name = (field.getAttribute('name') || field.id || '').toLowerCase();
+        if (type === 'email' || name.indexOf('email') >= 0) field.setAttribute('autocomplete', 'email');
+        else if (name.indexOf('nome') >= 0 || name.indexOf('name') >= 0) field.setAttribute('autocomplete', 'name');
+        else if (name.indexOf('senha') >= 0 || name.indexOf('password') >= 0) field.setAttribute('autocomplete', 'current-password');
+      }
+    });
+
+    document.querySelectorAll('button:not([type])').forEach(function(button) {
+      button.setAttribute('type', 'button');
+    });
+  });
+})();
+</script>
+
+<script>
+/* codex-project-behavior-standardization: microcomportamentos compartilhados */
+(function() {
+  if (window.__codexProjectBehaviorStandardization) return;
+  window.__codexProjectBehaviorStandardization = true;
+
+  var SUBMIT_LOCK_MS = 2500;
+  var invalidFocusPending = false;
+
+  function isElement(value) {
+    return value && value.nodeType === 1;
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function unlockForm(form, button) {
+    if (isElement(form)) {
+      delete form.dataset.codexSubmitting;
+      if (form.getAttribute('aria-busy') === 'true') form.setAttribute('aria-busy', 'false');
+    }
+
+    if (isElement(button) && button.dataset.codexSubmitLocked === 'true') {
+      delete button.dataset.codexSubmitLocked;
+      button.disabled = false;
+      button.removeAttribute('aria-disabled');
+    }
+  }
+
+  function restoreSubmitLocks(scope) {
+    var root = scope && scope.querySelectorAll ? scope : document;
+
+    root.querySelectorAll('form[data-codex-submitting="true"]').forEach(function(form) {
+      unlockForm(form);
+    });
+
+    root.querySelectorAll('[data-codex-submit-locked="true"]').forEach(function(button) {
+      unlockForm(null, button);
+    });
+  }
+
+  document.addEventListener('submit', function(event) {
+    var form = event.target;
+    if (!isElement(form) || String(form.tagName).toLowerCase() !== 'form') return;
+    if (form.hasAttribute('data-no-submit-lock')) return;
+
+    if (form.dataset.codexSubmitting === 'true') {
+      event.preventDefault();
+      return;
+    }
+
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+
+    form.dataset.codexSubmitting = 'true';
+    form.setAttribute('aria-busy', 'true');
+
+    var button = event.submitter || form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+    if (isElement(button) && !button.disabled && !button.hasAttribute('data-no-submit-lock')) {
+      button.dataset.codexSubmitLocked = 'true';
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+    }
+
+    window.setTimeout(function() {
+      unlockForm(form, button);
+    }, SUBMIT_LOCK_MS);
+  }, true);
+
+  document.addEventListener('invalid', function(event) {
+    var field = event.target;
+    if (!isElement(field) || invalidFocusPending) return;
+    invalidFocusPending = true;
+
+    window.setTimeout(function() {
+      invalidFocusPending = false;
+      if (!document.documentElement.contains(field)) return;
+      try {
+        field.scrollIntoView({ block: 'center', inline: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+        field.focus({ preventScroll: true });
+      } catch (error) {
+        field.focus();
+      }
+    }, 0);
+  }, true);
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Escape') return;
+    var closedSomething = false;
+
+    var dialogs = Array.prototype.slice.call(document.querySelectorAll('dialog[open]'));
+    var dialog = dialogs[dialogs.length - 1];
+    if (dialog && typeof dialog.close === 'function') {
+      dialog.close();
+      closedSomething = true;
+    }
+
+    if (!closedSomething) {
+      var details = Array.prototype.slice.call(document.querySelectorAll('details[open]'));
+      var detail = details[details.length - 1];
+      if (detail) {
+        detail.removeAttribute('open');
+        closedSomething = true;
+      }
+    }
+
+    document.querySelectorAll('[aria-expanded="true"]').forEach(function(toggle) {
+      toggle.setAttribute('aria-expanded', 'false');
+      closedSomething = true;
+    });
+
+    if (closedSomething) event.preventDefault();
+  }, true);
+
+  window.addEventListener('pageshow', function() {
+    restoreSubmitLocks(document);
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') restoreSubmitLocks(document);
+  });
+})();
+</script>
+  <?!= include('ClientCall'); ?>
+  <?!= include('HealthCheck'); ?>
+<?!= include('HumanReviewPanel'); ?>
+
+<script>
+/* codex-apicall-v1 — não remover este marcador */
+(function() {
+  'use strict';
+  /* Lê ?page=app#tok= da URL e armazena em módulo para todas as chamadas */
+  var __tok__ = '';
+  try {
+    __tok__ = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tok') || new URLSearchParams(window.location.search).get('tok') || '';
+  } catch(e) {}
+  window.__CODEX_TOK__ = __tok__;
+
+  /* Funções que recebem tok como 1º argumento */
+  var TOK_FIRST = ['getInitialAppData', 'pingSession', 'getUserData',
+                   'getInitialData', 'getDashboardData', 'loadAppData'];
+
+  /**
+   * apiCall(fnName, ...args) — wrapper promisificado para google.script.run.
+   * Injeta o token automaticamente em funções da lista TOK_FIRST.
+   */
+  function apiCall(fnName) {
+    var extra = Array.prototype.slice.call(arguments, 1);
+    var args  = TOK_FIRST.indexOf(fnName) >= 0
+      ? [window.__CODEX_TOK__].concat(extra)
+      : extra;
+    return new Promise(function(resolve, reject) {
+      if (!window.google || !google.script || !google.script.run) {
+        reject(new Error('google.script.run não disponível.')); return;
+      }
+      var runner = google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function(e) {
+          reject(new Error(e && e.message ? e.message : String(e)));
+        });
+      if (typeof runner[fnName] !== 'function') {
+        reject(new Error('Função backend não encontrada: ' + fnName)); return;
+      }
+      runner[fnName].apply(runner, args);
+    });
+  }
+
+  window.apiCall = apiCall;
+
+  /* Auto-bootstrap: chama getInitialAppData e dispara evento com o usuário */
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof google === 'undefined' || !google.script) return;
+    apiCall('getInitialAppData').then(function(res) {
+      if (res && res.success && res.currentUser) {
+        window.__CODEX_USER__ = res.currentUser;
+        document.dispatchEvent(new CustomEvent('codex:userLoaded', { detail: res.currentUser }));
+      }
+    }).catch(function() { /* silencioso — getInitialAppData pode não existir ainda */ });
+  });
+})();
+</script>
+
+
+
+<!-- fleet-method-guide:start -->
+<style>
+  .fleet-method-guide { box-sizing: border-box; flex: 0 0 auto; grid-column: 1 / -1; width: calc(100% - 2rem); max-width: 64rem; margin: 1rem auto; border: 1px solid currentColor; border-radius: .65rem; color: inherit; background: inherit; font: inherit; }
+  .fleet-method-guide > summary { cursor: pointer; padding: .75rem 1rem; min-height: 44px; box-sizing: border-box; font-weight: 600; overflow-wrap: anywhere; }
+  .fleet-method-guide > summary:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+  .fleet-method-guide .fleet-method-content { padding: 0 1rem 1rem; max-height: 50vh; overflow-y: auto; overscroll-behavior: contain; }
+  .fleet-method-guide p { margin: .5rem 0; line-height: 1.5; overflow-wrap: anywhere; }
+  .fleet-method-guide dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: .35rem; margin: .75rem 0 1rem; }
+  .fleet-method-guide dt { font-weight: 600; margin-top: .5rem; }
+  .fleet-method-guide dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+  @media print { .fleet-method-guide { display: none; } }
+</style>
+<details class="fleet-method-guide" data-project="tool_debate">
+  <summary>Como conduzir esta atividade</summary>
+  <div class="fleet-method-content">
+    <p>Tool Debate — Um Conto por Aluno</p>
+    <section aria-label="Para quem participa">
+      <p><strong>Para quem participa</strong></p>
+      <dl>
+        <dt>Propósito</dt><dd>Criar, revisar e publicar um conto preservando a própria autoria.</dd>
+        <dt>Ação</dt><dd>Responder ao questionário, revisar o rascunho e escolher o que aprovar.</dd>
+        <dt>Fechamento</dt><dd>Publicar somente a versão aprovada ou manter o trabalho como rascunho.</dd>
+      </dl>
+    </section>
+    <section aria-label="Para quem conduz a turma">
+      <p><strong>Para quem conduz a turma</strong></p>
+      <dl>
+        <dt>Propósito</dt><dd>Mediar autoria literária e uso consciente de IA.</dd>
+        <dt>Ação</dt><dd>Acompanhar etapas, consentimento e pedidos de ajuda.</dd>
+        <dt>Fechamento</dt><dd>Organizar o acervo apenas com produções aprovadas pelos alunos.</dd>
+      </dl>
+    </section>
+  </div>
+</details>
+<!-- fleet-method-guide:end -->
+</body>
 </html>
+
+
+
+

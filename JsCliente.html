@@ -1,0 +1,1205 @@
+<style id="up-oracular-design-system">
+:root {
+  color-scheme: dark;
+  --uo-bg: #15171c;
+  --uo-panel: #20242b;
+  --uo-text: #e9ecf1;
+  --uo-muted: #b2b9c4;
+  --uo-border: #343941;
+  --uo-accent: #7aa2d6;
+  --uo-radius-group: 10px;
+  --uo-radius-control: 8px;
+}
+
+html, body {
+  background: var(--uo-bg) !important;
+  color: var(--uo-text) !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body, input, select, textarea, button {
+  color: var(--uo-text);
+}
+
+.card, .panel, .modal, .dialog, dialog, .container,
+.box, .widget, .section, .sidebar, .drawer, .popover,
+[role="dialog"], [class*="card"], [class*="panel"] {
+  background-color: var(--uo-panel) !important;
+  border-color: var(--uo-border) !important;
+  border-radius: var(--uo-radius-group) !important;
+}
+
+button, input, select, textarea, .btn, .button,
+[role="button"], [role="menuitem"], .dropdown-item,
+.menu-item, [class*="button"], [class*="dropdown-item"] {
+  border-radius: var(--uo-radius-control) !important;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+input, select, textarea {
+  background-color: var(--uo-panel) !important;
+  border: 1px solid var(--uo-border) !important;
+  padding: 8px !important;
+  box-sizing: border-box;
+}
+
+label, .form-label, [class*="form-label"] {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--uo-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.35;
+}
+
+.uo-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.uo-feedback-box {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483647;
+  min-width: 220px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--uo-border);
+  border-radius: var(--uo-radius-group);
+  background: var(--uo-panel);
+  color: var(--uo-text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.uo-feedback-box.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.uo-feedback-box[data-kind="ok"] {
+  border-color: #8fc2a6;
+  color: #8fc2a6;
+}
+
+.uo-feedback-box[data-kind="err"] {
+  border-color: #d98b93;
+  color: #d98b93;
+}
+
+form[aria-busy="true"] {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+form[aria-busy="true"] :is(button, input[type="submit"], input[type="button"]) {
+  pointer-events: none;
+}
+
+button, .btn-primary, .button-primary,
+[class*="primary"][role="button"] {
+  background-color: var(--uo-accent) !important;
+}
+
+p, small, .muted, .secondary, .subtitle,
+[class*="muted"], [class*="secondary"] {
+  color: var(--uo-muted) !important;
+}
+
+hr, table, th, td, fieldset {
+  border-color: var(--uo-border) !important;
+}
+
+a {
+  color: var(--uo-accent);
+}
+
+/* Geometrias funcionais permanecem circulares. */
+.avatar, .spinner, .loading-ring, .dot, .status-dot,
+[class*="avatar"], [class*="spinner"], [class*="loading-ring"] {
+  border-radius: 50% !important;
+}
+</style>
+<script id="up-oracular-form-feedback">
+  /* codex-escapehtml-canonical: helper de escape padrao da frota */
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+(function () {
+  'use strict';
+  if (window.UpOracularFeedback) return;
+
+  var timer = null;
+  function notify(kind, message) {
+    var box = document.getElementById('uo-feedback-box');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'uo-feedback-box';
+      box.className = 'uo-feedback-box';
+      box.setAttribute('role', 'status');
+      box.setAttribute('aria-live', 'polite');
+      document.body.appendChild(box);
+    }
+    box.dataset.kind = kind === 'err' ? 'err' : 'ok';
+    box.textContent = String(message || (kind === 'err' ? 'Nao foi possivel concluir.' : 'Operacao concluida.'));
+    box.classList.add('is-visible');
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      box.classList.remove('is-visible');
+    }, 1000);
+  }
+
+  function connectLabels(form) {
+    form.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(function (field, index) {
+      var id = field.id || ('uo-field-' + index + '-' + Math.random().toString(36).slice(2, 7));
+      field.id = id;
+      var label = form.querySelector('label[for="' + id + '"]');
+      if (!label) {
+        var sibling = field.previousElementSibling;
+        if (sibling && sibling.tagName === 'LABEL') {
+          sibling.htmlFor = id;
+          label = sibling;
+        }
+      }
+      if (label && field.parentElement && !field.parentElement.classList.contains('uo-field')) {
+        field.parentElement.classList.add('uo-field');
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form').forEach(connectLabels);
+  });
+
+  document.addEventListener('submit', function (event) {
+    var form = event.target;
+    if (!form || form.tagName !== 'FORM') return;
+    form.setAttribute('aria-busy', 'true');
+    notify('ok', 'Enviando...');
+    window.setTimeout(function () {
+      if (form.getAttribute('aria-busy') === 'true') {
+        form.removeAttribute('aria-busy');
+      }
+    }, 10000);
+  }, true);
+
+  window.UpOracularFeedback = {
+    ok: function (message) { notify('ok', message); },
+    err: function (message) { notify('err', message); },
+    done: function (form, message) {
+      if (form) form.removeAttribute('aria-busy');
+      notify('ok', message);
+    },
+    fail: function (form, message) {
+      if (form) form.removeAttribute('aria-busy');
+      notify('err', message);
+    }
+  };
+}());
+</script>
+
+<style>
+
+
+/* codex-school-community-ux: ajustes finos para uso recorrente por comunidade escolar */
+:root {
+  --codex-school-focus: #ffd166;
+  --codex-school-touch: 44px;
+  --codex-school-radius: 8px;
+  --codex-school-field-radius: 7px;
+  --codex-school-form-gap: 14px;
+  --codex-school-field-border: rgba(120, 132, 156, 0.45);
+  --codex-school-field-bg: rgba(255, 255, 255, 0.96);
+  --codex-school-field-text: #1f2937;
+  --codex-school-muted-text: #64748b;
+  --codex-school-soft-surface: rgba(248, 250, 252, 0.82);
+  --codex-school-safe-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+:where(html) {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+:where(body) {
+  overscroll-behavior-y: contain;
+}
+
+:where(p, li, dd, dt, blockquote, figcaption, label, td, th) {
+  line-height: 1.5;
+}
+
+:where(main, .main, .content, .page, .app, .app-shell, .container, .dashboard, .workspace) {
+  padding-bottom: var(--codex-school-safe-bottom);
+}
+
+:where(a, button, .btn, .button, [role="button"], input, select, textarea, summary) {
+  min-height: var(--codex-school-touch);
+  touch-action: manipulation;
+}
+
+:where(button, .btn, .button, [role="button"], input[type="submit"], input[type="button"]) {
+  border-radius: var(--codex-school-radius) !important;
+  font-weight: 700;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--codex-school-focus) !important;
+  outline-offset: 3px !important;
+}
+
+:where(label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--codex-gentle-muted, var(--text-muted, var(--codex-school-muted-text)));
+  font-weight: 700;
+}
+
+:where(form) {
+  border-radius: var(--codex-school-radius) !important;
+}
+
+:where(fieldset) {
+  border-radius: var(--codex-school-radius) !important;
+  border-color: var(--codex-school-field-border);
+}
+
+:where(legend) {
+  padding-inline: 6px;
+  font-weight: 700;
+}
+
+:where(.form-group, .input-field, .field, .form-field, .control-group) {
+  margin-bottom: var(--codex-school-form-gap);
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  width: min(100%, 100%);
+  border-radius: var(--codex-school-field-radius) !important;
+  border-color: var(--codex-school-field-border) !important;
+  background-color: var(--input-bg, var(--field-bg, var(--codex-school-field-bg)));
+  color: var(--input-text, var(--text-color, var(--codex-school-field-text)));
+  font-size: 16px !important;
+}
+
+:where(input::placeholder, textarea::placeholder) {
+  color: var(--placeholder-color, #94a3b8);
+  opacity: 1;
+}
+
+:where(input[required], select[required], textarea[required]) {
+  border-left: 3px solid var(--codex-gentle-primary-strong, #aecbfa) !important;
+}
+
+:where(input:disabled, select:disabled, textarea:disabled, button:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed !important;
+  opacity: 0.68;
+}
+
+:where(.help, .hint, .help-text, .form-help, small) {
+  line-height: 1.45;
+  color: var(--codex-gentle-muted, var(--text-muted, var(--codex-school-muted-text)));
+}
+
+:where(.actions, .form-actions, .button-row, .toolbar, .topbar, nav, [role="toolbar"]) {
+  gap: 8px;
+}
+
+:where(.actions, .form-actions, .button-row) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+:where(.actions, .form-actions, .button-row) > :where(button, .btn, .button, [role="button"]) {
+  flex: 1 1 148px;
+}
+
+:where(.card, .panel, .box, .tile, .item, .list-item, .action-card) {
+  border-radius: var(--codex-school-radius) !important;
+}
+
+:where(.section, .surface, .widget, .modal-content, .dialog-content, .drawer, .dropdown, .menu) {
+  border-radius: var(--codex-school-radius) !important;
+}
+
+:where(.filters, .search-panel, .form-section) {
+  border-radius: var(--codex-school-radius) !important;
+  background: var(--codex-school-soft-surface);
+}
+
+:where(table) {
+  border-collapse: collapse;
+}
+
+:where(table, .table, .data-table) {
+  max-width: 100%;
+}
+
+:where(.table-wrap, .table-wrapper, .table-container, .responsive-table) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+:where(th, td) {
+  vertical-align: top;
+}
+
+:where(.toast, .alert, .notice, .snackbar, [role="status"], [role="alert"]) {
+  border-radius: var(--codex-school-radius) !important;
+  line-height: 1.45;
+}
+
+@media (max-width: 420px) {
+  :where(body) {
+    font-size: 16px;
+  }
+
+  :where(h1) {
+    font-size: clamp(1.55rem, 1.35rem + 1vw, 2rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  :where(h2) {
+    font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.55rem) !important;
+    line-height: 1.2 !important;
+  }
+
+  :where(.toolbar, .topbar, nav, [role="toolbar"]) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  :where(.hide-mobile, .desktop-only) {
+    display: none !important;
+  }
+}
+</style>
+<script>
+(function () {
+  'use strict';
+
+  // ---- Configuração de UX ----
+  var AUTO_AVANCAR = true;   // após escolher uma opção, avança sozinho
+  var ATRASO_AVANCO = 350;   // ms até avançar (deixa a criança ver a escolha)
+
+  // ---- Estado ----
+  var PERGUNTAS = [];
+  var respostas = {};            // { idPergunta -> opção }
+  var progressoGlobal = null;    // { atribuidas, total, disponiveis }
+  var estudante = { autenticado: false, jaRespondeu: false, identificacao: '' };
+  var passoAtual = 0;            // índice da pergunta exibida
+  var deRevisao = false;         // true quando se está editando a partir da revisão
+  var enviando = false;
+  var avancoTimer = null;
+  var tokenRender = 0;           // invalida avanços agendados ao trocar de tela
+
+  var TELAS = ['telaCarregando', 'telaIntro', 'telaPergunta', 'telaRevisao', 'telaResultado'];
+  var $ = function (id) { return document.getElementById(id); };
+
+  document.addEventListener('DOMContentLoaded', iniciar);
+
+  function iniciar() {
+    $('botaoComecar').addEventListener('click', function () { mostrarPergunta(passoAtual, false); });
+    $('botaoVoltar').addEventListener('click', voltar);
+    $('botaoProxima').addEventListener('click', proxima);
+    $('botaoVoltarRevisao').addEventListener('click', function () { mostrarPergunta(PERGUNTAS.length - 1, false); });
+    $('botaoEnviar').addEventListener('click', enviar);
+    $('botaoRetomarRascunho').addEventListener('click', retomarRascunho);
+    var btnAcervo = $('botaoIrAcervo');
+    if (btnAcervo) btnAcervo.addEventListener('click', irParaAcervo);
+
+    var btnLimpar = $('botaoLimparProgresso');
+    if (btnLimpar) {
+      btnLimpar.addEventListener('click', function() {
+        if (confirm('Tem certeza de que deseja apagar todas as respostas e começar do zero?')) {
+          limparProgressoLocal();
+          mostrarIntro();
+        }
+      });
+    }
+
+    $('campoIdentificacao').addEventListener('input', salvarProgressoLocal);
+    $('campoIdade').addEventListener('input', salvarProgressoLocal);
+    var campoComent = $('campoComentario');
+    if (campoComent) campoComent.addEventListener('input', salvarProgressoLocal);
+
+    carregarDados();
+  }
+
+  // ---------------------------------------------------------------- carga
+  function carregarDados() {
+    mostrarCarregando();
+    google.script.run
+      .withSuccessHandler(aoCarregar)
+      .withFailureHandler(function (e) {
+        mostrarErroCarregamento(
+          (e && e.message) ? e.message : 'Não foi possível carregar o questionário. Tente novamente.');
+      })
+      .apiObterDadosIniciais(window.__CODEX_TOK__ || '');
+  }
+
+  function mostrarCarregando() {
+    mostrarSomente('telaCarregando');
+    $('telaCarregando').innerHTML =
+      '<div class="spinner" aria-hidden="true"></div>' +
+      '<p>Carregando o questionário...</p>';
+  }
+
+  function aoCarregar(dados) {
+    dados = dados || {};
+    PERGUNTAS = normalizarPerguntas(dados.perguntas);
+    progressoGlobal = dados.progresso || null;
+    estudante = dados.estudante || estudante;
+    $('titulo').textContent = dados.titulo || 'Um conto por aluno';
+    document.title = dados.titulo || document.title;
+
+    if (PERGUNTAS.length === 0) {
+      mostrarErroCarregamento(
+        'O questionário não trouxe nenhuma pergunta válida. ' +
+        'Verifique a definição das perguntas no servidor (obterPerguntas).');
+      return;
+    }
+    carregarProgressoLocal();
+    mostrarIntro();
+  }
+
+  // Valida cada passo recebido do backend antes de vincular ao frontend: cada
+  // pergunta precisa de id único, texto e ao menos uma opção. Passos inválidos
+  // são descartados aqui em vez de quebrar a renderização lá na frente.
+  function normalizarPerguntas(lista) {
+    if (!Array.isArray(lista)) return [];
+    var vistos = {};
+    return lista.filter(function (p) {
+      if (!p || typeof p !== 'object') return false;
+      if (typeof p.id !== 'string' || !p.id) return false;
+      if (vistos[p.id]) return false;
+      if (typeof p.pergunta !== 'string' || !p.pergunta.trim()) return false;
+      if (!Array.isArray(p.opcoes) || p.opcoes.length === 0) return false;
+      vistos[p.id] = true;
+      return true;
+    });
+  }
+
+  function mostrarErroCarregamento(msg) {
+    mostrarSomente('telaCarregando');
+    var tela = $('telaCarregando');
+    tela.innerHTML =
+      '<p role="alert">Não foi possível iniciar o questionário.</p>' +
+      '<p class="ajuda">' + escapar(msg) + '</p>' +
+      '<button type="button" id="botaoTentarCarregar" class="botao secundario grande">' +
+        'Tentar novamente' +
+      '</button>';
+    $('botaoTentarCarregar').addEventListener('click', carregarDados);
+  }
+
+  // --------------------------------------------------------- troca de telas
+  function mostrarSomente(idAlvo) {
+    clearTimeout(avancoTimer);
+    tokenRender++;
+    TELAS.forEach(function (id) {
+      $(id).classList.toggle('oculto', id !== idAlvo);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  function mostrarIntro() {
+    mostrarSomente('telaIntro');
+    $('progressoGlobalIntro').textContent = textoGlobal();
+    atualizarTopo(0, 'Identificação');
+    aplicarIdentidadeAutenticada();
+
+    var botaoComecar = $('botaoComecar');
+    var bloco = $('blocoResumoProgresso');
+
+    // Regra "um conto por aluno": se o estudante autenticado já criou o conto,
+    // o questionário fica bloqueado e ele é convidado a ouvir o acervo.
+    if (estudante.jaRespondeu) {
+      var avisoCriacao = $('avisoJaRespondeu');
+      avisoCriacao.classList.remove('oculto');
+      if (estudante.rascunho && estudante.rascunho.expired) {
+        avisoCriacao.textContent = estudante.rascunho.message;
+      } else if (estudante.rascunho) {
+        avisoCriacao.textContent = 'Seu conto ainda é um rascunho. Retome a revisão para editar, rejeitar ou aprovar a publicação.';
+      } else {
+        avisoCriacao.textContent = 'Seu registro já existe. Se o conto ainda não aparece no acervo, peça à professora para reprocessar a geração.';
+      }
+      botaoComecar.classList.add('oculto');
+      $('botaoRetomarRascunho').classList.toggle('oculto', !estudante.rascunho || estudante.rascunho.expired);
+      var campos = $('camposOpcionais');
+      if (campos) campos.classList.add('oculto');
+      if (bloco) bloco.classList.add('oculto');
+      return;
+    }
+
+    $('avisoJaRespondeu').classList.add('oculto');
+    botaoComecar.classList.remove('oculto');
+
+    var numRespondidas = Object.keys(respostas).length;
+    if (bloco) {
+      if (numRespondidas > 0) {
+        $('resumoProgressoTexto').textContent = 'Você já respondeu ' + numRespondidas + ' de ' + PERGUNTAS.length + ' perguntas.';
+        botaoComecar.textContent = 'Continuar Questionário →';
+        bloco.classList.remove('oculto');
+      } else {
+        botaoComecar.textContent = 'Começar →';
+        bloco.classList.add('oculto');
+      }
+    }
+  }
+
+  // O aluno chega autenticado: a identificação é a sua identidade de login,
+  // exibida e travada (o servidor a regrava de qualquer forma na submissão).
+  function aplicarIdentidadeAutenticada() {
+    if (!estudante.autenticado) return;
+    var campo = $('campoIdentificacao');
+    if (campo && estudante.identificacao) {
+      campo.value = estudante.identificacao;
+      campo.readOnly = true;
+      campo.setAttribute('aria-readonly', 'true');
+    }
+  }
+
+  function mostrarPergunta(indice, editando) {
+    passoAtual = indice;
+    deRevisao = !!editando;
+    renderPergunta();
+    mostrarSomente('telaPergunta');
+    atualizarTopo((indice + 1) / PERGUNTAS.length, 'Pergunta ' + (indice + 1) + ' de ' + PERGUNTAS.length);
+    salvarProgressoLocal();
+  }
+
+  function mostrarRevisao() {
+    renderRevisao();
+    mostrarSomente('telaRevisao');
+    atualizarTopo(1, 'Revisão — confira e envie');
+  }
+
+  // ----------------------------------------------- render de uma pergunta
+  function renderPergunta() {
+    var p = PERGUNTAS[passoAtual];
+    $('perguntaTexto').textContent = p.pergunta;
+
+    var caixa = $('perguntaOpcoes');
+    caixa.innerHTML = '';
+    // Perguntas com muitas opções (iniciais A–Z) viram uma grade compacta.
+    caixa.className = 'opcoes' + (p.opcoes.length > 12 ? ' grade-letras' : '');
+
+    p.opcoes.forEach(function (opcao, i) {
+      caixa.appendChild(criarOpcao(p, opcao, i));
+    });
+
+    var temResposta = false;
+    if (p.multipla === true) {
+      temResposta = Array.isArray(respostas[p.id]) && respostas[p.id].length > 0;
+    } else {
+      temResposta = !!respostas[p.id];
+    }
+    
+    var ehUltima = passoAtual === PERGUNTAS.length - 1;
+    var btn = $('botaoProxima');
+    btn.disabled = !temResposta;
+    btn.textContent = deRevisao ? 'Concluir edição' : (ehUltima ? 'Revisar →' : 'Próxima →');
+    $('botaoVoltar').textContent = deRevisao ? 'Cancelar' : '← Voltar';
+  }
+
+  function criarOpcao(p, opcao, i) {
+    var rotulo = document.createElement('label');
+    var ehMultipla = p.multipla === true;
+    var respostaAtual = respostas[p.id];
+    var selecionada = false;
+
+    if (ehMultipla) {
+      // Para múltipla escolha, respostas[p.id] é um array
+      selecionada = Array.isArray(respostaAtual) && respostaAtual.indexOf(opcao) !== -1;
+    } else {
+      selecionada = respostaAtual === opcao;
+    }
+
+    rotulo.className = 'opcao' + (selecionada ? ' selecionada' : '');
+
+    var input = document.createElement('input');
+    input.type = ehMultipla ? 'checkbox' : 'radio';
+    input.name = p.id;
+    input.value = opcao;
+    input.checked = selecionada;
+
+    if (ehMultipla) {
+      input.addEventListener('change', function () { aoSelecionarMultipla(p, opcao); });
+    } else {
+      input.addEventListener('change', function () { aoSelecionar(p, opcao); });
+    }
+
+    var texto = document.createElement('span');
+    texto.textContent = opcao;
+
+    rotulo.appendChild(input);
+    rotulo.appendChild(texto);
+    return rotulo;
+  }
+
+  function aoSelecionar(p, opcao) {
+    respostas[p.id] = opcao;
+    marcarSelecao(p.id);
+    $('botaoProxima').disabled = false;
+    salvarProgressoLocal();
+
+    if (AUTO_AVANCAR) {
+      var meuToken = tokenRender;
+      clearTimeout(avancoTimer);
+      avancoTimer = setTimeout(function () {
+        if (meuToken === tokenRender) avancar(); // só avança se ainda na mesma tela
+      }, ATRASO_AVANCO);
+    }
+  }
+
+  function aoSelecionarMultipla(p, opcao) {
+    var maxEscolhas = p.maxEscolhas || 3;
+    if (!Array.isArray(respostas[p.id])) {
+      respostas[p.id] = [];
+    }
+
+    var indice = respostas[p.id].indexOf(opcao);
+    if (indice !== -1) {
+      // Desmarca a opção
+      respostas[p.id].splice(indice, 1);
+    } else {
+      // Marca a opção, mas verifica o limite
+      if (respostas[p.id].length >= maxEscolhas) {
+        mostrarAviso('Você pode escolher no máximo ' + maxEscolhas + ' opções.');
+        // Desmarca o checkbox que acabou de ser clicado
+        var labels = $('perguntaOpcoes').querySelectorAll('.opcao input[value="' + opcao + '"]');
+        if (labels.length > 0) labels[0].checked = false;
+        return;
+      }
+      respostas[p.id].push(opcao);
+    }
+
+    marcarSelecao(p.id);
+    $('botaoProxima').disabled = respostas[p.id].length === 0;
+    salvarProgressoLocal();
+  }
+
+  function marcarSelecao(idPergunta) {
+    var labels = $('perguntaOpcoes').querySelectorAll('.opcao');
+    for (var i = 0; i < labels.length; i++) {
+      labels[i].classList.toggle('selecionada', labels[i].querySelector('input').checked);
+    }
+  }
+
+  // --------------------------------------------------------- navegação
+  function avancar() {
+    if (deRevisao) { mostrarRevisao(); return; }
+    if (passoAtual < PERGUNTAS.length - 1) mostrarPergunta(passoAtual + 1, false);
+    else mostrarRevisao();
+  }
+
+  function proxima() {
+    clearTimeout(avancoTimer);
+    var pergunta = PERGUNTAS[passoAtual];
+    var resposta = respostas[pergunta.id];
+    var respostaVazia = pergunta.multipla === true
+      ? !Array.isArray(resposta) || resposta.length === 0
+      : !resposta;
+    if (respostaVazia) {
+      mostrarAviso('Escolha uma opção para continuar.');
+      return;
+    }
+    avancar();
+  }
+
+  function voltar() {
+    clearTimeout(avancoTimer);
+    if (deRevisao) { mostrarRevisao(); return; }
+    if (passoAtual > 0) mostrarPergunta(passoAtual - 1, false);
+    else mostrarIntro();
+  }
+
+  // ----------------------------------------------------------- revisão
+  function renderRevisao() {
+    var lista = $('listaRevisao');
+    lista.innerHTML = '';
+    PERGUNTAS.forEach(function (p, indice) {
+      var li = document.createElement('li');
+      var resposta = respostas[p.id];
+      var textoResposta = '—';
+      
+      if (Array.isArray(resposta)) {
+        // Múltipla escolha
+        textoResposta = resposta.length > 0 ? resposta.join(', ') : '—';
+      } else if (resposta) {
+        // Escolha única
+        textoResposta = resposta;
+      }
+      
+      li.innerHTML =
+        '<span class="rev-pergunta">' + escapar(p.coluna) + '</span>' +
+        '<span class="rev-resposta">' + escapar(textoResposta) + '</span>' +
+        '<span class="rev-editar">editar ✎</span>';
+      li.addEventListener('click', function () { mostrarPergunta(indice, true); });
+      lista.appendChild(li);
+    });
+  }
+
+  // ----------------------------------------------------------------- envio
+  function enviar() {
+    if (enviando) return;
+
+    var faltando = PERGUNTAS.filter(function (p) { 
+      var resposta = respostas[p.id];
+      if (p.multipla === true) {
+        return !Array.isArray(resposta) || resposta.length === 0;
+      }
+      return !resposta;
+    });
+    if (faltando.length > 0) {
+      mostrarAviso('Ainda faltam ' + faltando.length + ' pergunta(s).');
+      mostrarPergunta(PERGUNTAS.indexOf(faltando[0]), false);
+      return;
+    }
+
+    enviando = true;
+    var botao = $('botaoEnviar');
+    botao.disabled = true;
+    botao.textContent = 'Atribuindo diretriz e gerando o conto...';
+
+    google.script.run
+      .withSuccessHandler(aoRegistrar)
+      .withFailureHandler(aoFalhar)
+      .apiRegistrarResposta(window.__CODEX_TOK__ || '', {
+        respostas: respostas,
+        identificacao: $('campoIdentificacao').value,
+        idade: $('campoIdade').value,
+        comentario: $('campoComentario').value,
+        consentAcknowledged: $('consentimentoIaAgora').checked
+      });
+  }
+
+  function aoRegistrar(res) {
+    enviando = false;
+    $('botaoEnviar').disabled = false;
+    $('botaoEnviar').textContent = 'Enviar e atribuir diretriz';
+    if (!res || !res.ok) { aoFalhar(new Error('Resposta inesperada do servidor.')); return; }
+
+    estudante.jaRespondeu = true;
+    limparProgressoLocal();
+    progressoGlobal = res.progresso;
+    $('resultadoAluno').textContent = 'Aluno ' + res.idAluno + ' • linha ' + res.linha + ' da aba Respostas';
+    $('resultadoDiretrizId').textContent = res.diretriz.id;
+    $('resultadoDiretrizTitulo').textContent = res.diretriz.titulo;
+    renderCamposDiretriz(res.diretriz.campos || []);
+    $('resultadoMetodo').textContent = 'Diretriz escolhida por: ' + res.metodo;
+    renderConto(res);
+    $('resultadoProgresso').textContent = textoGlobal();
+
+    mostrarSomente('telaResultado');
+    atualizarTopo(1, res.conto && res.conto.review ? 'Revisão pendente' : 'Geração pendente');
+  }
+
+  function retomarRascunho() {
+    var draft = estudante.rascunho;
+    if (!draft || draft.expired) return;
+    aoRegistrar({
+      ok: true,
+      idAluno: draft.studentRecordId,
+      linha: draft.row,
+      metodo: draft.method || '',
+      diretriz: draft.directive || { id: '', titulo: '', campos: [] },
+      conto: {
+        titulo: draft.title,
+        caracteres: String(draft.review.content || '').length,
+        arquivo: '',
+        link: '',
+        perguntas: [],
+        rascunho: true,
+        review: draft.review
+      },
+      progresso: progressoGlobal
+    });
+  }
+
+  // Mostra o conto gerado (título, tamanho, link do .txt) ou o aviso de erro.
+  function renderConto(res) {
+    $('resultadoConto').classList.add('oculto');
+    $('resultadoContoErro').classList.add('oculto');
+
+    if (res.conto) {
+      $('resultadoContoTitulo').textContent = res.conto.titulo;
+      $('resultadoContoMeta').textContent =
+        res.conto.caracteres + ' caracteres' + (res.conto.rascunho ? ' • ainda não publicado' : '');
+      var link = $('resultadoContoLink');
+      if (res.conto.link) {
+        link.href = res.conto.link;
+        link.classList.remove('oculto');
+      } else {
+        link.classList.add('oculto');
+      }
+
+      if (res.conto.review && window.AiHumanReview) {
+        $('botaoIrAcervo').classList.add('oculto');
+        window.AiHumanReview.bind(null, res.conto.review, function () {
+          return window.__CODEX_TOK__ || '';
+        }, publicarContoAprovado);
+      }
+
+      // Prática de recuperação: perguntas para responder após a leitura.
+      var perguntas = res.conto.perguntas || [];
+      var blocoPerguntas = $('resultadoPerguntas');
+      if (perguntas.length > 0) {
+        var lista = $('resultadoPerguntasLista');
+        lista.innerHTML = '';
+        perguntas.forEach(function (p) {
+          var li = document.createElement('li');
+          li.textContent = p.pergunta;
+          if (p.dica) {
+            var dica = document.createElement('small');
+            dica.textContent = ' Dica: ' + p.dica;
+            li.appendChild(document.createElement('br'));
+            li.appendChild(dica);
+          }
+          lista.appendChild(li);
+        });
+        blocoPerguntas.classList.remove('oculto');
+      } else {
+        blocoPerguntas.classList.add('oculto');
+      }
+
+      $('resultadoConto').classList.remove('oculto');
+    }
+
+    if (res.erroConto) {
+      $('resultadoTitulo').textContent = 'Registro preservado com erro';
+      $('resultadoContoErro').textContent =
+        'Resposta registrada, mas o conto não pôde ser gerado: ' + res.erroConto;
+      $('resultadoContoErro').classList.remove('oculto');
+    }
+  }
+
+  function publicarContoAprovado(aprovado) {
+    $('resultadoContoMeta').textContent = 'Publicando a versão aprovada no acervo...';
+    google.script.run
+      .withSuccessHandler(aoPublicarConto)
+      .withFailureHandler(function (e) {
+        $('resultadoContoMeta').textContent = 'A versão foi aprovada, mas a publicação falhou: ' + escapar(e && e.message ? e.message : e);
+      })
+      .apiPublicarConto(window.__CODEX_TOK__ || '', aprovado.id, aprovado.version);
+  }
+
+  function aoPublicarConto(publicacao) {
+    $('resultadoTitulo').textContent = 'Conto publicado!';
+    $('resultadoContoRotulo').textContent = 'Conto aprovado e publicado no Drive';
+    $('resultadoContoMeta').textContent = publicacao.characters + ' caracteres • ' + publicacao.fileName;
+    var link = $('resultadoContoLink');
+    link.href = publicacao.url;
+    link.classList.remove('oculto');
+    var perguntas = publicacao.questions || [];
+    if (perguntas.length) {
+      var lista = $('resultadoPerguntasLista');
+      lista.innerHTML = '';
+      perguntas.forEach(function (p) {
+        var li = document.createElement('li');
+        li.textContent = p.pergunta;
+        if (p.dica) {
+          var dica = document.createElement('small');
+          dica.textContent = ' Dica: ' + p.dica;
+          li.appendChild(document.createElement('br'));
+          li.appendChild(dica);
+        }
+        lista.appendChild(li);
+      });
+      $('resultadoPerguntas').classList.remove('oculto');
+    }
+    $('botaoIrAcervo').classList.remove('oculto');
+    atualizarTopo(1, 'Publicado ✓');
+  }
+
+  function aoFalhar(e) {
+    enviando = false;
+    var botao = $('botaoEnviar');
+    botao.disabled = false;
+    botao.textContent = 'Enviar e atribuir diretriz';
+    mostrarAviso((e && e.message) ? e.message : 'Falha ao registrar. Tente novamente.');
+  }
+
+  // ------------------------------------------------- ir para "Ouvir o acervo"
+  // Cada aluno cria um único conto; ao concluir, levamos o estudante ao player
+  // do acervo, que ordena os contos ainda não lidos pelo gosto dele.
+  function irParaAcervo() {
+    if (window.LeituraAcervo && typeof window.LeituraAcervo.alternarModulo === 'function') {
+      window.LeituraAcervo.alternarModulo('leitura');
+    }
+    window.scrollTo(0, 0);
+  }
+
+  // ------------------------------------------------------------- auxiliares
+
+  function salvarProgressoLocal() {
+    try {
+      localStorage.setItem('tooldebate.criacao.respostas', JSON.stringify(respostas));
+      localStorage.setItem('tooldebate.criacao.passoAtual', passoAtual);
+      localStorage.setItem('tooldebate.criacao.identificacao', $('campoIdentificacao').value);
+      localStorage.setItem('tooldebate.criacao.idade', $('campoIdade').value);
+      var campoComent = $('campoComentario');
+      if (campoComent) {
+        localStorage.setItem('tooldebate.criacao.comentario', campoComent.value);
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar progresso local:', e);
+    }
+  }
+
+  function carregarProgressoLocal() {
+    try {
+      var salvas = localStorage.getItem('tooldebate.criacao.respostas');
+      if (salvas) {
+        respostas = JSON.parse(salvas);
+      }
+      var passo = localStorage.getItem('tooldebate.criacao.passoAtual');
+      if (passo !== null) {
+        passoAtual = parseInt(passo, 10);
+        if (isNaN(passoAtual) || passoAtual < 0 || passoAtual >= PERGUNTAS.length) {
+          passoAtual = 0;
+        }
+      }
+      $('campoIdentificacao').value = localStorage.getItem('tooldebate.criacao.identificacao') || '';
+      $('campoIdade').value = localStorage.getItem('tooldebate.criacao.idade') || '';
+      var campoComent = $('campoComentario');
+      if (campoComent) {
+        campoComent.value = localStorage.getItem('tooldebate.criacao.comentario') || '';
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar progresso local:', e);
+    }
+  }
+
+  function limparProgressoLocal() {
+    respostas = {};
+    passoAtual = 0;
+    deRevisao = false;
+    $('campoIdentificacao').value = '';
+    $('campoIdade').value = '';
+    var campoComent = $('campoComentario');
+    if (campoComent) campoComent.value = '';
+    try {
+      localStorage.removeItem('tooldebate.criacao.respostas');
+      localStorage.removeItem('tooldebate.criacao.passoAtual');
+      localStorage.removeItem('tooldebate.criacao.identificacao');
+      localStorage.removeItem('tooldebate.criacao.idade');
+      localStorage.removeItem('tooldebate.criacao.comentario');
+    } catch (e) {
+      console.warn('Erro ao limpar progresso local:', e);
+    }
+  }
+
+  function atualizarTopo(fracao, texto) {
+    $('progressoPreenchido').style.width = Math.round(fracao * 100) + '%';
+    $('progressoTexto').textContent = texto;
+  }
+
+  function textoGlobal() {
+    if (!progressoGlobal) return '';
+    return progressoGlobal.atribuidas + ' de ' + progressoGlobal.total +
+      ' contos já atribuídos • ' + progressoGlobal.disponiveis + ' diretrizes livres';
+  }
+
+  var avisoTimer = null;
+  function mostrarAviso(msg) {
+    var el = $('aviso');
+    el.textContent = msg;
+    el.classList.remove('oculto');
+    clearTimeout(avisoTimer);
+    avisoTimer = setTimeout(function () { el.classList.add('oculto'); }, 4500);
+  }
+
+  // Lista todos os campos preenchidos da diretriz no painel de confirmação.
+  // (A aba "Respostas" guarda TODOS os campos, inclusive os vazios.)
+  function renderCamposDiretriz(campos) {
+    var ul = $('resultadoCampos');
+    ul.innerHTML = '';
+    campos.forEach(function (c) {
+      if (!c.valor) return;
+      var li = document.createElement('li');
+      li.innerHTML = '<b>' + escapar(c.rotulo) + ':</b> ' + escapar(c.valor);
+      ul.appendChild(li);
+    });
+  }
+
+  function escapar(txt) {
+    var d = document.createElement('div');
+    d.textContent = txt == null ? '' : String(txt);
+    return d.innerHTML;
+  }
+})();
+</script>
+
+<script>
+/* codex-school-community-ux-script: pequenos ajustes de contexto escolar */
+(function() {
+  if (window.__codexSchoolCommunityUx) return;
+  window.__codexSchoolCommunityUx = true;
+
+  function ready(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+    else fn();
+  }
+
+  ready(function() {
+    document.documentElement.setAttribute('data-community-context', 'school');
+
+    document.querySelectorAll('form').forEach(function(form) {
+      if (!form.getAttribute('aria-label') && !form.getAttribute('aria-labelledby')) {
+        form.setAttribute('aria-label', 'Formulario da comunidade escolar');
+      }
+    });
+
+    document.querySelectorAll('input, select, textarea').forEach(function(field) {
+      if (!field.id && field.name) field.id = 'field-' + String(field.name).replace(/[^a-zA-Z0-9_-]/g, '-');
+      if (field.required && !field.getAttribute('aria-required')) field.setAttribute('aria-required', 'true');
+      if (!field.getAttribute('autocomplete')) {
+        var type = (field.getAttribute('type') || '').toLowerCase();
+        var name = (field.getAttribute('name') || field.id || '').toLowerCase();
+        if (type === 'email' || name.indexOf('email') >= 0) field.setAttribute('autocomplete', 'email');
+        else if (name.indexOf('nome') >= 0 || name.indexOf('name') >= 0) field.setAttribute('autocomplete', 'name');
+        else if (name.indexOf('senha') >= 0 || name.indexOf('password') >= 0) field.setAttribute('autocomplete', 'current-password');
+      }
+    });
+
+    document.querySelectorAll('button:not([type])').forEach(function(button) {
+      button.setAttribute('type', 'button');
+    });
+  });
+})();
+</script>
+
+<script>
+/* codex-project-behavior-standardization: microcomportamentos compartilhados */
+(function() {
+  if (window.__codexProjectBehaviorStandardization) return;
+  window.__codexProjectBehaviorStandardization = true;
+
+  var SUBMIT_LOCK_MS = 2500;
+  var invalidFocusPending = false;
+
+  function isElement(value) {
+    return value && value.nodeType === 1;
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function unlockForm(form, button) {
+    if (isElement(form)) {
+      delete form.dataset.codexSubmitting;
+      if (form.getAttribute('aria-busy') === 'true') form.setAttribute('aria-busy', 'false');
+    }
+
+    if (isElement(button) && button.dataset.codexSubmitLocked === 'true') {
+      delete button.dataset.codexSubmitLocked;
+      button.disabled = false;
+      button.removeAttribute('aria-disabled');
+    }
+  }
+
+  function restoreSubmitLocks(scope) {
+    var root = scope && scope.querySelectorAll ? scope : document;
+
+    root.querySelectorAll('form[data-codex-submitting="true"]').forEach(function(form) {
+      unlockForm(form);
+    });
+
+    root.querySelectorAll('[data-codex-submit-locked="true"]').forEach(function(button) {
+      unlockForm(null, button);
+    });
+  }
+
+  document.addEventListener('submit', function(event) {
+    var form = event.target;
+    if (!isElement(form) || String(form.tagName).toLowerCase() !== 'form') return;
+    if (form.hasAttribute('data-no-submit-lock')) return;
+
+    if (form.dataset.codexSubmitting === 'true') {
+      event.preventDefault();
+      return;
+    }
+
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+
+    form.dataset.codexSubmitting = 'true';
+    form.setAttribute('aria-busy', 'true');
+
+    var button = event.submitter || form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+    if (isElement(button) && !button.disabled && !button.hasAttribute('data-no-submit-lock')) {
+      button.dataset.codexSubmitLocked = 'true';
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+    }
+
+    window.setTimeout(function() {
+      unlockForm(form, button);
+    }, SUBMIT_LOCK_MS);
+  }, true);
+
+  document.addEventListener('invalid', function(event) {
+    var field = event.target;
+    if (!isElement(field) || invalidFocusPending) return;
+    invalidFocusPending = true;
+
+    window.setTimeout(function() {
+      invalidFocusPending = false;
+      if (!document.documentElement.contains(field)) return;
+      try {
+        field.scrollIntoView({ block: 'center', inline: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+        field.focus({ preventScroll: true });
+      } catch (error) {
+        field.focus();
+      }
+    }, 0);
+  }, true);
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Escape') return;
+    var closedSomething = false;
+
+    var dialogs = Array.prototype.slice.call(document.querySelectorAll('dialog[open]'));
+    var dialog = dialogs[dialogs.length - 1];
+    if (dialog && typeof dialog.close === 'function') {
+      dialog.close();
+      closedSomething = true;
+    }
+
+    if (!closedSomething) {
+      var details = Array.prototype.slice.call(document.querySelectorAll('details[open]'));
+      var detail = details[details.length - 1];
+      if (detail) {
+        detail.removeAttribute('open');
+        closedSomething = true;
+      }
+    }
+
+    document.querySelectorAll('[aria-expanded="true"]').forEach(function(toggle) {
+      toggle.setAttribute('aria-expanded', 'false');
+      closedSomething = true;
+    });
+
+    if (closedSomething) event.preventDefault();
+  }, true);
+
+  window.addEventListener('pageshow', function() {
+    restoreSubmitLocks(document);
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') restoreSubmitLocks(document);
+  });
+})();
+</script>
